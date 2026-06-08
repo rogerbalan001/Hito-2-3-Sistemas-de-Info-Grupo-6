@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "524180906135",
+    "project_id": "ecospot-app-450f6",
+    "storage_bucket": "ecospot-app-450f6.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:524180906135:android:b8dc60aac93cfc759089d2",
+        "android_client_info": {
+          "package_name": "com.ecospot.ecospot"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyACA763W4AUFybYlQrQ_ir69SPl7MxOYaU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
