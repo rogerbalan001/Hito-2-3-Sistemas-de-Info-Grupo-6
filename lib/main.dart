@@ -5,6 +5,7 @@ import 'login_page.dart';
 import 'home_page.dart';
 import 'register_page.dart';
 import 'search_page.dart';
+import 'theme/app_theme.dart';
 
 void main() async {
   // Necesario antes de inicializar Firebase cuando main() es async.
@@ -25,10 +26,7 @@ class EcoSpotApp extends StatelessWidget {
     return MaterialApp(
       title: 'EcoSpot',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        primarySwatch: Colors.green,
-        primaryColor: Colors.green[800],
-      ),
+      theme: buildEcoSpotTheme(),
       initialRoute: '/login',
       routes: {
         '/login': (context) => const LoginPage(),
