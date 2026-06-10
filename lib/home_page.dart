@@ -225,7 +225,7 @@ class _InicioView extends StatelessWidget {
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (_) => const AddAccommodationPage(),
+                                    builder: (_) => AddAccommodationPage(),
                                   ),
                                 );
                               },
