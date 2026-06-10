@@ -1,28 +1,70 @@
 import 'package:flutter/material.dart';
-import 'theme/app_theme.dart'; // Ajusta esta ruta si tu archivo app_theme.dart está en otra carpeta
+import 'theme/app_theme.dart'; // Ajusta la ruta si es necesario
 import 'add_accommodation_page.dart';
+import 'my_reservations_page.dart';
+import 'profile_page.dart';
 
-class HomePage extends StatelessWidget {
-  const HomePage({super.key});
+/// Shell principal tras iniciar sesión. Contiene el menú inferior que alterna
+/// entre Inicio, Mis Reservas y Perfil.
+class HomePage extends StatefulWidget {
+  const HomePage({Key? key}) : super(key: key);
+
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  int _index = 0;
+
+  final _pages = const [
+    _InicioView(),
+    MyReservationsPage(),
+    ProfilePage(),
+  ];
 
   @override
   Widget build(BuildContext context) {
-    return const _InicioView();
+    return Scaffold(
+      body: IndexedStack(index: _index, children: _pages),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _index,
+        backgroundColor: Colors.white,
+        indicatorColor: AppColors.emerald100,
+        onDestinationSelected: (i) => setState(() => _index = i),
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.home_outlined),
+            selectedIcon: Icon(Icons.home, color: AppColors.emerald700),
+            label: 'Inicio',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.receipt_long_outlined),
+            selectedIcon: Icon(Icons.receipt_long, color: AppColors.emerald700),
+            label: 'Mis Reservas',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.person_outline),
+            selectedIcon: Icon(Icons.person, color: AppColors.emerald700),
+            label: 'Perfil',
+          ),
+        ],
+      ),
+    );
   }
 }
 
+/// Contenido de la pestaña "Inicio"
 class _InicioView extends StatelessWidget {
   const _InicioView();
 
   @override
   Widget build(BuildContext context) {
-    // Foto sacada del Figma/Unsplash del proyecto para el Hero
     const heroImage =
         'https://images.unsplash.com/photo-1611946022552-d2ca5ffba186?auto=format&fit=crop&w=1080&q=80';
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      // 1. BARRA DE NAVEGACIÓN EXTENDIDA (APPBAR)
+      // BARRA DE NAVEGACIÓN SUPERIOR (APPBAR)
       appBar: AppBar(
         title: const EcoSpotLogo(),
         backgroundColor: Colors.white,
@@ -98,11 +140,10 @@ class _InicioView extends StatelessWidget {
       body: ListView(
         padding: EdgeInsets.zero,
         children: [
-          // STACK PARA MONTAR EL HERO Y LAS ESTADÍSTICAS SUPERPUESTAS (OVERLAP)
+          // STACK PARA MONTAR EL HERO Y LAS ESTADÍSTICAS SUPERPUESTAS
           Stack(
             clipBehavior: Clip.none,
             children: [
-              // 2. SECCIÓN HERO CON FOTO DE FONDO
               Container(
                 height: 440,
                 width: double.infinity,
@@ -146,7 +187,6 @@ class _InicioView extends StatelessWidget {
                       ),
                       const SizedBox(height: 32),
                       
-                      // DOS BOTONES CENTRALES EN FILA
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
@@ -198,7 +238,6 @@ class _InicioView extends StatelessWidget {
                 ),
               ),
               
-              // 3. CONTENEDOR DE ESTADÍSTICAS HORIZONTAL (SOLAPADO)
               Positioned(
                 bottom: -40,
                 left: 24,
@@ -248,7 +287,7 @@ class _InicioView extends StatelessWidget {
           
           const SizedBox(height: 80),
 
-          // 4. SECCIÓN INTERNA: ¿CÓMO FUNCIONA?
+          // SECCIÓN INTERNA
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
             child: Column(
