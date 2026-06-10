@@ -1,0 +1,264 @@
+import 'package:flutter/material.dart';
+import 'models/accommodation.dart';
+import 'services/reservation_service.dart';
+import 'theme/app_theme.dart';
+
+/// CU-02: Consultar detalle de servicio.
+/// Se abre con Navigator.push desde la lista de búsqueda, recibiendo el
+/// [Accommodation] por constructor. Muestra una "foto" amplia, descripción,
+/// reglas del lugar y el botón definitivo de "Reservar" (RF04).
+class AccommodationDetailsPage extends StatelessWidget {
+  final Accommodation accommodation;
+  const AccommodationDetailsPage({Key? key, required this.accommodation})
+      : super(key: key);
+
+  IconData _iconFor(String type) {
+    switch (type) {
+      case 'Camping':
+        return Icons.park;
+      case 'Hostal':
+        return Icons.bed;
+      case 'Cabaña':
+        return Icons.cabin;
+      case 'Eco-Lodge':
+        return Icons.forest;
+      default:
+        return Icons.hotel;
+    }
+  }
+
+  /// Descripción por defecto cuando el alojamiento no trae una propia
+  /// (los del catálogo mock no la tienen).
+  String _descripcion() {
+    if (accommodation.description != null &&
+        accommodation.description!.trim().isNotEmpty) {
+      return accommodation.description!;
+    }
+    return 'Alojamiento de tipo ${accommodation.type.toLowerCase()} ubicado en '
+        '${accommodation.location}. Una opción económica y sostenible, ideal '
+        'para viajeros que buscan vivir la experiencia local sin gastar de más.';
+  }
+
+  List<String> _reglas() {
+    if (accommodation.rules.isNotEmpty) return accommodation.rules;
+    return const [
+      'Check-in desde las 2:00 PM · Check-out hasta las 11:00 AM',
+      'No se permiten fiestas ni eventos',
+      'Respetar las áreas comunes y el entorno natural',
+      'Mascotas permitidas bajo previo aviso',
+    ];
+  }
+
+  Future<void> _reservar(BuildContext context) async {
+    try {
+      await ReservationService().crearReserva(
+        alojamiento: accommodation.name,
+        ubicacion: accommodation.location,
+        precioPorNoche: accommodation.pricePerNight,
+      );
+      if (!context.mounted) return;
+      showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text('Reserva guardada'),
+          content: Text(
+            'Has solicitado "${accommodation.name}" '
+            '(${accommodation.location}).\n'
+            'Estado de la reserva: Solicitado.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Entendido'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No se pudo guardar la reserva: $e')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final a = accommodation;
+
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(title: const Text('Detalle del alojamiento')),
+      body: ListView(
+        padding: EdgeInsets.zero,
+        children: [
+          // "Foto" amplia (placeholder con degradado + ícono según el tipo).
+          Container(
+            height: 220,
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [AppColors.emerald300, AppColors.emerald700],
+              ),
+            ),
+            child: Center(
+              child: Icon(_iconFor(a.type),
+                  size: 88, color: Colors.white.withOpacity(0.9)),
+            ),
+          ),
+
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Nombre + badge de tipo.
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        a.name,
+                        style: const TextStyle(
+                            fontSize: 24, fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppColors.emerald100,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        a.type,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.emerald700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    const Icon(Icons.place_outlined,
+                        size: 16, color: AppColors.mutedForeground),
+                    const SizedBox(width: 4),
+                    Text(a.location,
+                        style: const TextStyle(
+                            color: AppColors.mutedForeground)),
+                  ],
+                ),
+                const SizedBox(height: 16),
+
+                // Precio + capacidad.
+                Row(
+                  children: [
+                    _InfoChip(
+                      icon: Icons.attach_money,
+                      label: '\$${a.pricePerNight.round()}/noche',
+                      color: AppColors.emerald700,
+                    ),
+                    const SizedBox(width: 10),
+                    if (a.capacity != null)
+                      _InfoChip(
+                        icon: Icons.group_outlined,
+                        label: 'Hasta ${a.capacity} personas',
+                        color: AppColors.blue600,
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+
+                const _SectionTitle('Descripción'),
+                const SizedBox(height: 6),
+                Text(
+                  _descripcion(),
+                  style: const TextStyle(
+                      fontSize: 14, height: 1.5, color: AppColors.foreground),
+                ),
+                const SizedBox(height: 24),
+
+                const _SectionTitle('Reglas del lugar'),
+                const SizedBox(height: 8),
+                ..._reglas().map(
+                  (regla) => Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(Icons.check_circle_outline,
+                            size: 18, color: AppColors.emerald600),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(regla,
+                              style: const TextStyle(
+                                  fontSize: 14, height: 1.4)),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 28),
+
+                SizedBox(
+                  height: 52,
+                  child: ElevatedButton.icon(
+                    onPressed: () => _reservar(context),
+                    icon: const Icon(Icons.event_available, size: 20),
+                    label: const Text('Reservar ahora'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SectionTitle extends StatelessWidget {
+  final String text;
+  const _SectionTitle(this.text);
+  @override
+  Widget build(BuildContext context) {
+    return Text(text,
+        style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700));
+  }
+}
+
+class _InfoChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  const _InfoChip(
+      {required this.icon, required this.label, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppColors.inputBackground,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 18, color: color),
+          const SizedBox(width: 6),
+          Text(label,
+              style: TextStyle(
+                  fontWeight: FontWeight.w600, color: color, fontSize: 13)),
+        ],
+      ),
+    );
+  }
+}
