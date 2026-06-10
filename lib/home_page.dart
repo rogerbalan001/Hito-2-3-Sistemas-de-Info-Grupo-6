@@ -315,17 +315,17 @@ class _InicioView extends StatelessWidget {
           
           const SizedBox(height: 90),
 
-          // SECCIÓN 2: ALOJAMIENTOS DESTACADOS (image_fc95c1.jpg)
+          // SECCIÓN 2: ALOJAMIENTOS DESTACADOS
           const _FeaturedSection(),
 
           const SizedBox(height: 20),
 
-          // SECCIÓN 3: PAQUETES TURÍSTICOS CON FONDO MENTA (image_fc95a0.jpg)
+          // SECCIÓN 3: PAQUETES TURÍSTICOS CON FONDO MENTA
           const _PackagesSection(),
 
           const SizedBox(height: 50),
 
-          // SECCIÓN 4: ¿CÓMO FUNCIONA? HORIZONTAL REESTRUCTURADO (image_fc957e.png)
+          // SECCIÓN 4: ¿CÓMO FUNCIONA? HORIZONTAL REESTRUCTURADO
           const _HowItWorksHorizontal(),
           
           const SizedBox(height: 60),
@@ -350,7 +350,7 @@ class _FeaturedSection extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.between,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text(
                 'Alojamientos Destacados',
@@ -439,7 +439,7 @@ class _AccommodationCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.between,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
                     Container(
@@ -454,7 +454,7 @@ class _AccommodationCard extends StatelessWidget {
                   children: [
                     const Icon(Icons.place_outlined, size: 14, color: AppColors.mutedForeground),
                     const SizedBox(width: 4),
-                    Text(location, style: const TextStyle(color: AppColors.mutedForeground, size: 13)),
+                    Text(location, style: const TextStyle(color: AppColors.mutedForeground, fontSize: 13)),
                   ],
                 ),
                 const SizedBox(height: 8),
@@ -467,10 +467,10 @@ class _AccommodationCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.between,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Row(
-                      baseline: TextBaseline.alphabetic,
+                      textBaseline: TextBaseline.alphabetic,
                       crossAxisAlignment: CrossAxisAlignment.baseline,
                       children: [
                         Text('\$$price', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: AppColors.emerald700)),
@@ -512,7 +512,7 @@ class _PackagesSection extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.between,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text(
                 'Paquetes Turísticos',
@@ -616,7 +616,7 @@ class _PackageCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 20),
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.between,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text('\$$price', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: AppColors.emerald700)),
                     Row(
@@ -711,7 +711,7 @@ class _HorizontalStep extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Text(
             desc,
-            textAlign: CenterTextAlign.center,
+            textAlign: TextAlign.center,
             style: const TextStyle(color: AppColors.mutedForeground, fontSize: 13, height: 1.4),
           ),
         ),
