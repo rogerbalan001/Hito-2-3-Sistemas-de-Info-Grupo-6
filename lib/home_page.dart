@@ -189,7 +189,7 @@ class _InicioView extends StatelessWidget {
                         'Encuentra hospedajes sostenibles y económicos en toda Venezuela',
                         style: TextStyle(
                           fontSize: 18,
-                          color: Colors.white90,
+                          color: Colors.white70,
                           fontWeight: FontWeight.w400,
                         ),
                       ),
