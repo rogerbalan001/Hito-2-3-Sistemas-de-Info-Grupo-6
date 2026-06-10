@@ -62,238 +62,285 @@ class _HomePageState extends State<HomePage> {
 class _InicioView extends StatelessWidget {
   const _InicioView();
 
-  void _abrirDetalle(BuildContext context, Accommodation a) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => AccommodationDetailsPage(accommodation: a),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    final destacados = AccommodationRepository().all().take(3).toList();
+    // Foto sacada del Figma/Unsplash del proyecto para el Hero
+    const heroImage =
+        'https://images.unsplash.com/photo-1611946022552-d2ca5ffba186?auto=format&fit=crop&w=1080&q=80';
 
     return Scaffold(
+      backgroundColor: AppColors.background,
+      // 1. BARRA DE NAVEGACIÓN EXTENDIDA (APPBAR)
       appBar: AppBar(
         title: const EcoSpotLogo(),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        centerTitle: false,
         actions: [
-          IconButton(
-            tooltip: 'Cerrar sesión',
-            icon: const Icon(Icons.logout, color: AppColors.emerald700),
-            onPressed: () async {
-              await AuthService().logout();
-              if (context.mounted) {
+          TextButton.icon(
+            onPressed: () {},
+            icon: const Icon(Icons.home_outlined, size: 18),
+            label: const Text('Inicio'),
+            style: TextButton.styleFrom(foregroundColor: AppColors.foreground),
+          ),
+          TextButton.icon(
+            onPressed: () => Navigator.pushNamed(context, '/search'),
+            icon: const Icon(Icons.search, size: 18),
+            label: const Text('Buscar'),
+            style: TextButton.styleFrom(foregroundColor: AppColors.mutedForeground),
+          ),
+          TextButton.icon(
+            onPressed: () {},
+            icon: const Icon(Icons.inventory_2_outlined, size: 18),
+            label: const Text('Paquetes'),
+            style: TextButton.styleFrom(foregroundColor: AppColors.mutedForeground),
+          ),
+          TextButton.icon(
+            onPressed: () {},
+            icon: const Icon(Icons.receipt_long_outlined, size: 18),
+            label: const Text('Reservas'),
+            style: TextButton.styleFrom(foregroundColor: AppColors.mutedForeground),
+          ),
+          TextButton.icon(
+            onPressed: () {},
+            icon: const Icon(Icons.people_outline, size: 18),
+            label: const Text('Comunidad'),
+            style: TextButton.styleFrom(foregroundColor: AppColors.mutedForeground),
+          ),
+          TextButton.icon(
+            onPressed: () {},
+            icon: const Icon(Icons.place_outlined, size: 18),
+            label: const Text('Operadores'),
+            style: TextButton.styleFrom(foregroundColor: AppColors.mutedForeground),
+          ),
+          TextButton.icon(
+            onPressed: () {},
+            icon: const Icon(Icons.dashboard_outlined, size: 18),
+            label: const Text('Dashboard'),
+            style: TextButton.styleFrom(foregroundColor: AppColors.mutedForeground),
+          ),
+          TextButton.icon(
+            onPressed: () {},
+            icon: const Icon(Icons.settings_outlined, size: 18),
+            label: const Text('Administración'),
+            style: TextButton.styleFrom(foregroundColor: AppColors.mutedForeground),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            child: ElevatedButton.icon(
+              onPressed: () {
                 Navigator.pushReplacementNamed(context, '/login');
-              }
-            },
-          )
+              },
+              icon: const Icon(Icons.login, size: 16),
+              label: const Text('Iniciar Sesión'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.emerald600,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+            ),
+          ),
         ],
       ),
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // ===== Hero con foto de fondo =====
-            Container(
-              width: double.infinity,
-              color: AppColors.emerald800,
-              child: Stack(
-                children: [
-                  Positioned.fill(
-                    child: Opacity(
-                      opacity: 0.28,
-                      child: Image.network(
-                        'https://images.unsplash.com/photo-1611946022552-d2ca5ffba186?auto=format&fit=crop&w=1080&q=80',
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-                      ),
-                    ),
+      body: ListView(
+        padding: EdgeInsets.zero,
+        children: [
+          // USAMOS UN STACK PARA ENLAZAR EL HERO Y LAS TARJETAS SUPERPUESTAS (OVERLAP)
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              // 2. SECCIÓN HERO CON FOTO DE FONDO
+              Container(
+                height: 440,
+                width: double.infinity,
+                decoration: const BoxDecoration(
+                  image: DecorationImage(
+                    image: NetworkImage(heroImage),
+                    fit: BoxFit.cover,
                   ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 24, vertical: 56),
-                    child: Column(
-                      children: [
-                        const Text(
-                          'Viaja Más, Gasta Menos',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 30,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        const SizedBox(height: 14),
-                        const Text(
-                          'Encuentra alojamientos económicos, paquetes '
-                          'turísticos accesibles y transporte público '
-                          'disponible. Tu próxima aventura no tiene que ser '
-                          'costosa.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: AppColors.emerald100,
-                            fontSize: 15,
-                            height: 1.5,
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                        SizedBox(
-                          height: 48,
-                          child: ElevatedButton.icon(
-                            onPressed: () =>
-                                Navigator.pushNamed(context, '/search'),
-                            icon: const Icon(Icons.search, size: 20),
-                            label:
-                                const Text('Buscar Opciones Económicas'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.emerald500,
-                              foregroundColor: Colors.white,
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 24),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                          ),
-                        ),
+                ),
+                child: Container(
+                  // Capa oscura degradada para que el texto blanco contraste
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.black.withOpacity(0.3),
+                        Colors.black.withOpacity(0.5),
                       ],
                     ),
                   ),
-                ],
-              ),
-            ),
-
-            // ===== Stats (2x2) =====
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 24, 16, 4),
-              child: Column(
-                children: const [
-                  Row(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      _StatCard(
-                          icon: Icons.place_outlined,
-                          value: '50+',
-                          label: 'Destinos',
-                          color: AppColors.emerald600),
-                      SizedBox(width: 12),
-                      _StatCard(
-                          icon: Icons.attach_money,
-                          value: '\$10',
-                          label: 'Desde/noche',
-                          color: AppColors.amber600),
+                      const Text(
+                        'Viaja Más, Gasta Menos',
+                        style: TextStyle(
+                          fontSize: 44,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                          letterSpacing: -1,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'Encuentra hospedajes sostenibles y económicos en toda Venezuela',
+                        style: TextStyle(
+                          fontSize: 18,
+                          color: Colors.white90,
+                          fontWeight: FontWeight.w400,
+                        ),
+                      ),
+                      const SizedBox(height: 32),
+                      
+                      // DOS BOTONES CENTRALES EN FILA
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          SizedBox(
+                            height: 48,
+                            child: ElevatedButton.icon(
+                              onPressed: () => Navigator.pushNamed(context, '/search'),
+                              icon: const Icon(Icons.search, size: 20),
+                              label: const Text('Buscar Opciones Económicas'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.emerald500,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 24),
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          SizedBox(
+                            height: 48,
+                            child: OutlinedButton.icon(
+                              onPressed: () {
+                                // Redirige directamente al formulario de AddAccommodationPage
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => const AddAccommodationPage(),
+                                  ),
+                                );
+                              },
+                              icon: const Icon(Icons.place_outlined, size: 20),
+                              label: const Text('Registrar mi Servicio'),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: Colors.white,
+                                side: const BorderSide(color: Colors.white, width: 1.5),
+                                padding: const EdgeInsets.symmetric(horizontal: 24),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ],
                   ),
-                  SizedBox(height: 12),
-                  Row(
-                    children: [
-                      _StatCard(
-                          icon: Icons.groups_outlined,
-                          value: '12k+',
-                          label: 'Viajeros',
-                          color: AppColors.blue600),
-                      SizedBox(width: 12),
-                      _StatCard(
-                          icon: Icons.trending_up,
-                          value: '8.5k+',
-                          label: 'Reseñas',
-                          color: AppColors.purple600),
-                    ],
-                  ),
-                ],
+                ),
               ),
-            ),
+              
+              // 3. CONTENEDOR DE ESTADÍSTICAS HORIZONTAL (SOLAPADO -40px)
+              Positioned(
+                bottom: -40,
+                left: 24,
+                right: 24,
+                child: Row(
+                  children: const [
+                    Expanded(
+                      child: _StatCard(
+                        icon: Icons.place_outlined,
+                        value: '50+',
+                        label: 'Destinos',
+                        color: AppColors.emerald600,
+                      ),
+                    ),
+                    SizedBox(width: 16),
+                    Expanded(
+                      child: _StatCard(
+                        icon: Icons.attach_money,
+                        value: '\$10/noche',
+                        label: 'Desde',
+                        color: AppColors.amber600,
+                      ),
+                    ),
+                    SizedBox(width: 16),
+                    Expanded(
+                      child: _StatCard(
+                        icon: Icons.groups_outlined,
+                        value: '12,000+',
+                        label: 'Viajeros',
+                        color: AppColors.blue600,
+                      ),
+                    ),
+                    SizedBox(width: 16),
+                    Expanded(
+                      child: _StatCard(
+                        icon: Icons.trending_up,
+                        value: '8,500+',
+                        label: 'Reseñas',
+                        color: AppColors.purple600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          
+          // Espacio de separación provocado por el desfase de las estadísticas
+          const SizedBox(height: 80),
 
-            // ===== Alojamientos destacados =====
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Alojamientos Destacados',
-                    style: TextStyle(
-                        fontSize: 20, fontWeight: FontWeight.w700),
+          // 4. SECCIÓN INTERNA: ¿CÓMO FUNCIONA?
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  '¿Cómo funciona EcoSpot?',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.foreground,
                   ),
-                  TextButton(
-                    onPressed: () => Navigator.pushNamed(context, '/search'),
-                    child: const Text('Ver todos'),
-                  ),
-                ],
-              ),
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'Conectamos comunidades locales con viajeros conscientes.',
+                  style: TextStyle(color: AppColors.mutedForeground, fontSize: 14),
+                ),
+                const SizedBox(height: 28),
+                const _StepCard(
+                  icon: Icons.search_outlined,
+                  title: '1. Encuentra tu spot',
+                  desc: 'Filtra por precio máximo, destino y tipo de hospedaje ecológico según tu presupuesto real.',
+                ),
+                const SizedBox(height: 20),
+                const _StepCard(
+                  icon: Icons.mark_email_read_outlined,
+                  title: '2. Solicita tu reserva',
+                  desc: 'Envía una solicitud al operador turístico local. Recibirás respuesta rápida en tu panel.',
+                ),
+                const SizedBox(height: 20),
+                const _StepCard(
+                  icon: Icons.spa_outlined,
+                  title: '3. Viaja sostenible',
+                  desc: 'Disfruta de Venezuela reduciendo tu huella ecológica y apoyando la economía de la región.',
+                ),
+              ],
             ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Column(
-                children: destacados
-                    .map((a) => _FeaturedCard(
-                          accommodation: a,
-                          onTap: () => _abrirDetalle(context, a),
-                        ))
-                    .toList(),
-              ),
-            ),
-
-            // ===== ¿Cómo Funciona? =====
-            const SizedBox(height: 16),
-            const Text(
-              '¿Cómo Funciona?',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.w700,
-                color: AppColors.foreground,
-              ),
-            ),
-            const SizedBox(height: 24),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 24),
-              child: Column(
-                children: [
-                  _StepCard(
-                    icon: Icons.search,
-                    title: '1. Busca',
-                    desc:
-                        'Filtra por presupuesto, tipo y transporte disponible.',
-                  ),
-                  SizedBox(height: 20),
-                  _StepCard(
-                    icon: Icons.verified_user_outlined,
-                    title: '2. Reserva',
-                    desc: 'Solicita tu reserva directamente al operador.',
-                  ),
-                  SizedBox(height: 20),
-                  _StepCard(
-                    icon: Icons.attach_money,
-                    title: '3. Paga',
-                    desc: 'Pago seguro al confirmar tu reserva.',
-                  ),
-                  SizedBox(height: 20),
-                  _StepCard(
-                    icon: Icons.star_outline,
-                    title: '4. Disfruta',
-                    desc: 'Vive la experiencia y deja tu reseña.',
-                  ),
-                ],
-              ),
-            ),
-
-            // ===== Footer =====
-            const SizedBox(height: 32),
-            Container(
-              width: double.infinity,
-              color: AppColors.emerald900,
-              padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
-              child: const Text(
-                '© 2026 EcoSpot - Gestión de Turismo Económico.\n'
-                'Todos los derechos reservados.',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: AppColors.emerald100, fontSize: 13),
-              ),
-            ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 40),
+        ],
       ),
     );
   }
