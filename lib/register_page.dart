@@ -37,8 +37,13 @@ class _RegisterPageState extends State<RegisterPage> {
       return;
     }
     // El viajero (Unimetano) debe usar un correo institucional.
-    if (!email.toLowerCase().endsWith('@unimet.edu.ve')) {
-      _showMessage('El correo debe terminar en @unimet.edu.ve');
+    // Se aceptan ambos dominios oficiales de la Universidad Metropolitana.
+    const dominiosPermitidos = ['@unimet.edu.ve', '@correo.unimet.edu.ve'];
+    final correoValido =
+        dominiosPermitidos.any((d) => email.toLowerCase().endsWith(d));
+    if (!correoValido) {
+      _showMessage(
+          'El correo debe terminar en @unimet.edu.ve o @correo.unimet.edu.ve');
       return;
     }
     if (password.length < 6) {

@@ -1,9 +1,63 @@
 import 'package:flutter/material.dart';
 import 'services/auth_service.dart';
 import 'theme/app_theme.dart';
+import 'my_reservations_page.dart';
+import 'profile_page.dart';
 
-class HomePage extends StatelessWidget {
+/// Shell principal tras iniciar sesión. Contiene el menú inferior que alterna
+/// entre Inicio, Mis Reservas y Perfil. Usa IndexedStack para conservar el
+/// estado de cada pestaña al cambiar entre ellas.
+class HomePage extends StatefulWidget {
   const HomePage({Key? key}) : super(key: key);
+
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  int _index = 0;
+
+  final _pages = const [
+    _InicioView(),
+    MyReservationsPage(),
+    ProfilePage(),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: IndexedStack(index: _index, children: _pages),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _index,
+        backgroundColor: Colors.white,
+        indicatorColor: AppColors.emerald100,
+        onDestinationSelected: (i) => setState(() => _index = i),
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.home_outlined),
+            selectedIcon: Icon(Icons.home, color: AppColors.emerald700),
+            label: 'Inicio',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.receipt_long_outlined),
+            selectedIcon:
+                Icon(Icons.receipt_long, color: AppColors.emerald700),
+            label: 'Reservas',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.person_outline),
+            selectedIcon: Icon(Icons.person, color: AppColors.emerald700),
+            label: 'Perfil',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Pestaña de Inicio: contenido de marketing original de la app.
+class _InicioView extends StatelessWidget {
+  const _InicioView();
 
   @override
   Widget build(BuildContext context) {
@@ -65,8 +119,7 @@ class HomePage extends StatelessWidget {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.emerald500,
                         foregroundColor: Colors.white,
-                        padding:
-                            const EdgeInsets.symmetric(horizontal: 24),
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -116,8 +169,7 @@ class HomePage extends StatelessWidget {
                   _StepCard(
                     icon: Icons.search,
                     title: '1. Busca destinos',
-                    desc:
-                        'Filtra por presupuesto, tipo y transporte disponible.',
+                    desc: 'Filtra por presupuesto, tipo y transporte disponible.',
                   ),
                   SizedBox(height: 20),
                   _StepCard(
@@ -191,8 +243,8 @@ class _StatCard extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               value,
-              style: const TextStyle(
-                  fontSize: 22, fontWeight: FontWeight.w700),
+              style:
+                  const TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
             ),
             Text(
               label,
@@ -238,8 +290,8 @@ class _StepCard extends StatelessWidget {
             children: [
               Text(
                 title,
-                style: const TextStyle(
-                    fontSize: 16, fontWeight: FontWeight.w600),
+                style:
+                    const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 4),
               Text(

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'models/accommodation.dart';
 import 'services/accommodation_repository.dart';
-import 'services/reservation_service.dart';
+import 'accommodation_details_page.dart';
 import 'theme/app_theme.dart';
 
 class SearchPage extends StatefulWidget {
@@ -38,41 +38,13 @@ class _SearchPageState extends State<SearchPage> {
     }
   }
 
-  Future<void> _reservar(Accommodation a) async {
-    try {
-      await ReservationService().crearReserva(
-        alojamiento: a.name,
-        ubicacion: a.location,
-        precioPorNoche: a.pricePerNight,
-      );
-
-      if (!mounted) return;
-
-      showDialog(
-        context: context,
-        builder: (_) => AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: const Text('Reserva guardada'),
-          content: Text(
-            'Has solicitado "${a.name}" (${a.location}).\n'
-            'Estado de la reserva: Solicitado.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Entendido'),
-            ),
-          ],
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('No se pudo guardar la reserva: $e')),
-      );
-    }
+  void _abrirDetalle(Accommodation a) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AccommodationDetailsPage(accommodation: a),
+      ),
+    );
   }
 
   @override
@@ -211,7 +183,7 @@ class _SearchPageState extends State<SearchPage> {
             ...results.map((a) => _AccommodationCard(
                   accommodation: a,
                   icon: _iconFor(a.type),
-                  onReserve: () => _reservar(a),
+                  onOpen: () => _abrirDetalle(a),
                 )),
         ],
       ),
@@ -223,11 +195,11 @@ class _SearchPageState extends State<SearchPage> {
 class _AccommodationCard extends StatelessWidget {
   final Accommodation accommodation;
   final IconData icon;
-  final VoidCallback onReserve;
+  final VoidCallback onOpen;
   const _AccommodationCard({
     required this.accommodation,
     required this.icon,
-    required this.onReserve,
+    required this.onOpen,
   });
 
   @override
@@ -247,8 +219,13 @@ class _AccommodationCard extends StatelessWidget {
           ),
         ],
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onOpen,
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -340,7 +317,7 @@ class _AccommodationCard extends StatelessWidget {
                         ),
                       ),
                       ElevatedButton(
-                        onPressed: onReserve,
+                        onPressed: onOpen,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.emerald600,
                           foregroundColor: Colors.white,
@@ -353,7 +330,7 @@ class _AccommodationCard extends StatelessWidget {
                             borderRadius: BorderRadius.circular(8),
                           ),
                         ),
-                        child: const Text('Reservar'),
+                        child: const Text('Ver detalle'),
                       ),
                     ],
                   ),
@@ -362,7 +339,9 @@ class _AccommodationCard extends StatelessWidget {
             ),
           ],
         ),
-      ),
+            ),
+          ),
+        ),
     );
   }
 }

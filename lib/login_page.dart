@@ -204,7 +204,7 @@ class _LoginPageState extends State<LoginPage> {
                                 ),
                                 SizedBox(height: 4),
                                 Text(
-                                  'Email: demo@unimet.edu.ve\nPassword: demo123',
+                                  'Email: demo@correo.unimet.edu.ve\nPassword: demo123',
                                   style: TextStyle(
                                       fontSize: 11, color: AppColors.blue600),
                                 ),
