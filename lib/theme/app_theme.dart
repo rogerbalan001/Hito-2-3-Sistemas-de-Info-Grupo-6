@@ -22,12 +22,14 @@ class AppColors {
 
   // Acentos.
   static const amber500 = Color(0xFFF59E0B);
+  static const amber600 = Color(0xFFD97706);
   static const blue50 = Color(0xFFEFF6FF);
   static const blue100 = Color(0xFFDBEAFE);
   static const blue200 = Color(0xFFBFDBFE);
   static const blue600 = Color(0xFF2563EB);
   static const blue700 = Color(0xFF1D4ED8);
   static const purple50 = Color(0xFFFAF5FF);
+  static const purple600 = Color(0xFF9333EA);
   static const red50 = Color(0xFFFEF2F2);
   static const red600 = Color(0xFFDC2626);
 
@@ -125,6 +127,102 @@ class EcoSpotLogo extends StatelessWidget {
             fontWeight: FontWeight.w700,
           ),
         ),
+      ],
+    );
+  }
+}
+
+/// Imagen de red con degradado de respaldo (equivalente a ImageWithFallback
+/// del Figma). Si la URL es nula o falla la carga, muestra un degradado
+/// emerald con un ícono, evitando que se vea un error roto.
+class EcoImage extends StatelessWidget {
+  final String? url;
+  final double height;
+  final double? width;
+  final IconData fallbackIcon;
+  const EcoImage({
+    super.key,
+    required this.url,
+    required this.height,
+    this.width,
+    this.fallbackIcon = Icons.terrain,
+  });
+
+  Widget _fallback() {
+    return Container(
+      height: height,
+      width: width ?? double.infinity,
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [AppColors.emerald300, AppColors.emerald700],
+        ),
+      ),
+      child: Icon(fallbackIcon, color: Colors.white.withOpacity(0.9), size: 48),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final u = url;
+    if (u == null || u.isEmpty) return _fallback();
+    return Image.network(
+      u,
+      height: height,
+      width: width ?? double.infinity,
+      fit: BoxFit.cover,
+      errorBuilder: (_, __, ___) => _fallback(),
+      loadingBuilder: (context, child, progress) {
+        if (progress == null) return child;
+        return Container(
+          height: height,
+          width: width ?? double.infinity,
+          color: AppColors.emerald50,
+          alignment: Alignment.center,
+          child: const SizedBox(
+            width: 22,
+            height: 22,
+            child: CircularProgressIndicator(
+                strokeWidth: 2, color: AppColors.emerald400),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// Estrella + valoración + número de reseñas, como en las tarjetas del diseño.
+class StarRating extends StatelessWidget {
+  final double rating;
+  final int reviewCount;
+  final double fontSize;
+  const StarRating({
+    super.key,
+    required this.rating,
+    this.reviewCount = 0,
+    this.fontSize = 13,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Icon(Icons.star, size: 16, color: AppColors.amber500),
+        const SizedBox(width: 4),
+        Text(
+          rating.toStringAsFixed(1),
+          style: TextStyle(fontSize: fontSize, fontWeight: FontWeight.w600),
+        ),
+        if (reviewCount > 0) ...[
+          const SizedBox(width: 4),
+          Text(
+            '($reviewCount)',
+            style: TextStyle(
+                fontSize: fontSize, color: AppColors.mutedForeground),
+          ),
+        ],
       ],
     );
   }

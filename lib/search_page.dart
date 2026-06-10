@@ -7,7 +7,7 @@ import 'theme/app_theme.dart';
 class SearchPage extends StatefulWidget {
   const SearchPage({Key? key}) : super(key: key);
   @override
-  _SearchPageState createState() => _SearchPageState();
+  State<SearchPage> createState() => _SearchPageState();
 }
 
 class _SearchPageState extends State<SearchPage> {
@@ -49,18 +49,14 @@ class _SearchPageState extends State<SearchPage> {
 
   @override
   Widget build(BuildContext context) {
-    // Se consulta al repositorio aplicando los filtros activos.
     final results = _repository.search(query: _query, maxBudget: _maxBudget);
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: const EcoSpotLogo(),
-      ),
+      appBar: AppBar(title: const EcoSpotLogo()),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
         children: [
-          // Encabezado de la sección.
           const Text(
             'Búsqueda de Opciones Económicas',
             style: TextStyle(
@@ -147,7 +143,6 @@ class _SearchPageState extends State<SearchPage> {
           ),
           const SizedBox(height: 16),
 
-          // Contador de resultados.
           Text(
             '${results.length} resultado(s) encontrado(s)',
             style: const TextStyle(
@@ -155,7 +150,6 @@ class _SearchPageState extends State<SearchPage> {
           ),
           const SizedBox(height: 12),
 
-          // Resultados.
           if (results.isEmpty)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 48),
@@ -182,7 +176,7 @@ class _SearchPageState extends State<SearchPage> {
           else
             ...results.map((a) => _AccommodationCard(
                   accommodation: a,
-                  icon: _iconFor(a.type),
+                  fallbackIcon: _iconFor(a.type),
                   onOpen: () => _abrirDetalle(a),
                 )),
         ],
@@ -191,14 +185,14 @@ class _SearchPageState extends State<SearchPage> {
   }
 }
 
-/// Tarjeta de alojamiento con el estilo del diseño (Figma Make).
+/// Tarjeta de alojamiento con foto, rating, precio y acceso al detalle.
 class _AccommodationCard extends StatelessWidget {
   final Accommodation accommodation;
-  final IconData icon;
+  final IconData fallbackIcon;
   final VoidCallback onOpen;
   const _AccommodationCard({
     required this.accommodation,
-    required this.icon,
+    required this.fallbackIcon,
     required this.onOpen,
   });
 
@@ -224,124 +218,118 @@ class _AccommodationCard extends StatelessWidget {
         child: InkWell(
           onTap: onOpen,
           borderRadius: BorderRadius.circular(12),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // "Miniatura" con ícono según el tipo.
-            Container(
-              width: 64,
-              height: 64,
-              decoration: BoxDecoration(
-                color: AppColors.emerald50,
-                borderRadius: BorderRadius.circular(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ClipRRect(
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(12)),
+                child: EcoImage(
+                    url: a.imageUrl, height: 160, fallbackIcon: fallbackIcon),
               ),
-              child: Icon(icon, color: AppColors.emerald700, size: 30),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          a.name,
-                          style: const TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.w600),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      // Badge del tipo.
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: AppColors.emerald100,
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                        child: Text(
-                          a.type,
-                          style: const TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.emerald700,
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            a.name,
+                            style: const TextStyle(
+                                fontSize: 16, fontWeight: FontWeight.w600),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      const Icon(Icons.place_outlined,
-                          size: 14, color: AppColors.mutedForeground),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          a.location,
-                          style: const TextStyle(
-                              fontSize: 13,
-                              color: AppColors.mutedForeground),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      RichText(
-                        text: TextSpan(
-                          children: [
-                            TextSpan(
-                              text: '\$${a.pricePerNight.round()}',
-                              style: const TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.emerald700,
-                              ),
-                            ),
-                            const TextSpan(
-                              text: '/noche',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: AppColors.mutedForeground,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      ElevatedButton(
-                        onPressed: onOpen,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.emerald600,
-                          foregroundColor: Colors.white,
+                        const SizedBox(width: 8),
+                        Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 18, vertical: 8),
-                          minimumSize: const Size(0, 36),
-                          textStyle: const TextStyle(
-                              fontSize: 13, fontWeight: FontWeight.w600),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
+                              horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: AppColors.emerald100,
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Text(
+                            a.type,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.emerald700,
+                            ),
                           ),
                         ),
-                        child: const Text('Ver detalle'),
-                      ),
-                    ],
-                  ),
-                ],
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        const Icon(Icons.place_outlined,
+                            size: 14, color: AppColors.mutedForeground),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            a.location,
+                            style: const TextStyle(
+                                fontSize: 13,
+                                color: AppColors.mutedForeground),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    StarRating(rating: a.rating, reviewCount: a.reviewCount),
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        RichText(
+                          text: TextSpan(
+                            children: [
+                              TextSpan(
+                                text: '\$${a.pricePerNight.round()}',
+                                style: const TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.emerald700,
+                                ),
+                              ),
+                              const TextSpan(
+                                text: '/noche',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: AppColors.mutedForeground,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        ElevatedButton(
+                          onPressed: onOpen,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.emerald600,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 18, vertical: 8),
+                            minimumSize: const Size(0, 36),
+                            textStyle: const TextStyle(
+                                fontSize: 13, fontWeight: FontWeight.w600),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          child: const Text('Ver detalle'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
-        ),
-            ),
+            ],
           ),
         ),
+      ),
     );
   }
 }

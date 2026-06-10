@@ -8,10 +8,14 @@ class Accommodation {
   final String type; // Posada, Camping, Hostal, Cabaña, Eco-Lodge
   final double pricePerNight;
 
-  // Campos opcionales usados por la vista de detalle (CU-02) y por los
-  // alojamientos que publican los operadores desde Firestore.
+  // Datos enriquecidos usados por las tarjetas y la vista de detalle (CU-02),
+  // alineados con el diseño del Figma (rating con estrellas, foto, amenidades).
+  final double rating;
+  final int reviewCount;
+  final String? imageUrl;
   final String? description;
   final int? capacity;
+  final List<String> amenities;
   final List<String> rules;
 
   const Accommodation({
@@ -19,8 +23,12 @@ class Accommodation {
     required this.location,
     required this.type,
     required this.pricePerNight,
+    this.rating = 0,
+    this.reviewCount = 0,
+    this.imageUrl,
     this.description,
     this.capacity,
+    this.amenities = const [],
     this.rules = const [],
   });
 
@@ -32,6 +40,9 @@ class Accommodation {
       location: (map['destino'] ?? '') as String,
       type: (map['tipo'] ?? 'Posada') as String,
       pricePerNight: (map['precioPorNoche'] ?? 0).toDouble(),
+      rating: (map['rating'] ?? 0).toDouble(),
+      reviewCount: (map['reviewCount'] as num?)?.toInt() ?? 0,
+      imageUrl: map['imageUrl'] as String?,
       description: map['descripcion'] as String?,
       capacity: (map['capacidad'] as num?)?.toInt(),
     );

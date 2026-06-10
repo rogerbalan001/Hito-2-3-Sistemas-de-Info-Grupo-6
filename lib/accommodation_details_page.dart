@@ -5,8 +5,8 @@ import 'theme/app_theme.dart';
 
 /// CU-02: Consultar detalle de servicio.
 /// Se abre con Navigator.push desde la lista de búsqueda, recibiendo el
-/// [Accommodation] por constructor. Muestra una "foto" amplia, descripción,
-/// reglas del lugar y el botón definitivo de "Reservar" (RF04).
+/// [Accommodation] por constructor. Muestra foto, rating, amenidades,
+/// descripción, reglas y el botón definitivo de "Reservar" (RF04).
 class AccommodationDetailsPage extends StatelessWidget {
   final Accommodation accommodation;
   const AccommodationDetailsPage({Key? key, required this.accommodation})
@@ -27,8 +27,6 @@ class AccommodationDetailsPage extends StatelessWidget {
     }
   }
 
-  /// Descripción por defecto cuando el alojamiento no trae una propia
-  /// (los del catálogo mock no la tienen).
   String _descripcion() {
     if (accommodation.description != null &&
         accommodation.description!.trim().isNotEmpty) {
@@ -94,28 +92,14 @@ class AccommodationDetailsPage extends StatelessWidget {
       body: ListView(
         padding: EdgeInsets.zero,
         children: [
-          // "Foto" amplia (placeholder con degradado + ícono según el tipo).
-          Container(
-            height: 220,
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [AppColors.emerald300, AppColors.emerald700],
-              ),
-            ),
-            child: Center(
-              child: Icon(_iconFor(a.type),
-                  size: 88, color: Colors.white.withOpacity(0.9)),
-            ),
-          ),
+          // Foto de cabecera con respaldo en degradado.
+          EcoImage(url: a.imageUrl, height: 230, fallbackIcon: _iconFor(a.type)),
 
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Nombre + badge de tipo.
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -153,11 +137,13 @@ class AccommodationDetailsPage extends StatelessWidget {
                     Text(a.location,
                         style: const TextStyle(
                             color: AppColors.mutedForeground)),
+                    const SizedBox(width: 12),
+                    if (a.rating > 0)
+                      StarRating(rating: a.rating, reviewCount: a.reviewCount),
                   ],
                 ),
                 const SizedBox(height: 16),
 
-                // Precio + capacidad.
                 Row(
                   children: [
                     _InfoChip(
@@ -183,8 +169,37 @@ class AccommodationDetailsPage extends StatelessWidget {
                   style: const TextStyle(
                       fontSize: 14, height: 1.5, color: AppColors.foreground),
                 ),
-                const SizedBox(height: 24),
 
+                if (a.amenities.isNotEmpty) ...[
+                  const SizedBox(height: 24),
+                  const _SectionTitle('Amenidades'),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: a.amenities
+                        .map((am) => Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: AppColors.emerald50,
+                                borderRadius: BorderRadius.circular(999),
+                                border:
+                                    Border.all(color: AppColors.emerald100),
+                              ),
+                              child: Text(
+                                am,
+                                style: const TextStyle(
+                                    fontSize: 12,
+                                    color: AppColors.emerald700,
+                                    fontWeight: FontWeight.w500),
+                              ),
+                            ))
+                        .toList(),
+                  ),
+                ],
+
+                const SizedBox(height: 24),
                 const _SectionTitle('Reglas del lugar'),
                 const SizedBox(height: 8),
                 ..._reglas().map(

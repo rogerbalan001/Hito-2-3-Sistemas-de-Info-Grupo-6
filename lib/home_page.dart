@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'models/accommodation.dart';
+import 'services/accommodation_repository.dart';
 import 'services/auth_service.dart';
-import 'theme/app_theme.dart';
+import 'accommodation_details_page.dart';
 import 'my_reservations_page.dart';
 import 'profile_page.dart';
+import 'theme/app_theme.dart';
 
 /// Shell principal tras iniciar sesión. Contiene el menú inferior que alterna
 /// entre Inicio, Mis Reservas y Perfil. Usa IndexedStack para conservar el
@@ -55,12 +58,23 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
-/// Pestaña de Inicio: contenido de marketing original de la app.
+/// Pestaña de Inicio: hero, estadísticas, alojamientos destacados y pasos.
 class _InicioView extends StatelessWidget {
   const _InicioView();
 
+  void _abrirDetalle(BuildContext context, Accommodation a) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AccommodationDetailsPage(accommodation: a),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final destacados = AccommodationRepository().all().take(3).toList();
+
     return Scaffold(
       appBar: AppBar(
         title: const EcoSpotLogo(),
@@ -81,77 +95,148 @@ class _InicioView extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // ===== Hero =====
+            // ===== Hero con foto de fondo =====
             Container(
               width: double.infinity,
               color: AppColors.emerald800,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 56),
-              child: Column(
+              child: Stack(
                 children: [
-                  const Text(
-                    'Viaja Más, Gasta Menos',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 30,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  const Text(
-                    'Encuentra alojamientos económicos, paquetes turísticos '
-                    'accesibles y transporte público disponible. Tu próxima '
-                    'aventura no tiene que ser costosa.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: AppColors.emerald100,
-                      fontSize: 15,
-                      height: 1.5,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  SizedBox(
-                    height: 48,
-                    child: ElevatedButton.icon(
-                      onPressed: () => Navigator.pushNamed(context, '/search'),
-                      icon: const Icon(Icons.search, size: 20),
-                      label: const Text('Buscar Opciones Económicas'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.emerald500,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 24),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
+                  Positioned.fill(
+                    child: Opacity(
+                      opacity: 0.28,
+                      child: Image.network(
+                        'https://images.unsplash.com/photo-1611946022552-d2ca5ffba186?auto=format&fit=crop&w=1080&q=80',
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => const SizedBox.shrink(),
                       ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 24, vertical: 56),
+                    child: Column(
+                      children: [
+                        const Text(
+                          'Viaja Más, Gasta Menos',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 30,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        const Text(
+                          'Encuentra alojamientos económicos, paquetes '
+                          'turísticos accesibles y transporte público '
+                          'disponible. Tu próxima aventura no tiene que ser '
+                          'costosa.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: AppColors.emerald100,
+                            fontSize: 15,
+                            height: 1.5,
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        SizedBox(
+                          height: 48,
+                          child: ElevatedButton.icon(
+                            onPressed: () =>
+                                Navigator.pushNamed(context, '/search'),
+                            icon: const Icon(Icons.search, size: 20),
+                            label:
+                                const Text('Buscar Opciones Económicas'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.emerald500,
+                              foregroundColor: Colors.white,
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 24),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
               ),
             ),
 
-            // ===== Stats =====
+            // ===== Stats (2x2) =====
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 24, 16, 4),
+              child: Column(
+                children: const [
+                  Row(
+                    children: [
+                      _StatCard(
+                          icon: Icons.place_outlined,
+                          value: '50+',
+                          label: 'Destinos',
+                          color: AppColors.emerald600),
+                      SizedBox(width: 12),
+                      _StatCard(
+                          icon: Icons.attach_money,
+                          value: '\$10',
+                          label: 'Desde/noche',
+                          color: AppColors.amber600),
+                    ],
+                  ),
+                  SizedBox(height: 12),
+                  Row(
+                    children: [
+                      _StatCard(
+                          icon: Icons.groups_outlined,
+                          value: '12k+',
+                          label: 'Viajeros',
+                          color: AppColors.blue600),
+                      SizedBox(width: 12),
+                      _StatCard(
+                          icon: Icons.trending_up,
+                          value: '8.5k+',
+                          label: 'Reseñas',
+                          color: AppColors.purple600),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+
+            // ===== Alojamientos destacados =====
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
               child: Row(
-                children: const [
-                  _StatCard(
-                      icon: Icons.place_outlined,
-                      value: '50+',
-                      label: 'Destinos',
-                      color: AppColors.emerald600),
-                  SizedBox(width: 12),
-                  _StatCard(
-                      icon: Icons.attach_money,
-                      value: '\$10',
-                      label: 'Desde/noche',
-                      color: AppColors.amber500),
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Alojamientos Destacados',
+                    style: TextStyle(
+                        fontSize: 20, fontWeight: FontWeight.w700),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.pushNamed(context, '/search'),
+                    child: const Text('Ver todos'),
+                  ),
                 ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Column(
+                children: destacados
+                    .map((a) => _FeaturedCard(
+                          accommodation: a,
+                          onTap: () => _abrirDetalle(context, a),
+                        ))
+                    .toList(),
               ),
             ),
 
             // ===== ¿Cómo Funciona? =====
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
             const Text(
               '¿Cómo Funciona?',
               textAlign: TextAlign.center,
@@ -168,19 +253,26 @@ class _InicioView extends StatelessWidget {
                 children: [
                   _StepCard(
                     icon: Icons.search,
-                    title: '1. Busca destinos',
-                    desc: 'Filtra por presupuesto, tipo y transporte disponible.',
+                    title: '1. Busca',
+                    desc:
+                        'Filtra por presupuesto, tipo y transporte disponible.',
                   ),
                   SizedBox(height: 20),
                   _StepCard(
                     icon: Icons.verified_user_outlined,
-                    title: '2. Reserva segura',
+                    title: '2. Reserva',
                     desc: 'Solicita tu reserva directamente al operador.',
                   ),
                   SizedBox(height: 20),
                   _StepCard(
+                    icon: Icons.attach_money,
+                    title: '3. Paga',
+                    desc: 'Pago seguro al confirmar tu reserva.',
+                  ),
+                  SizedBox(height: 20),
+                  _StepCard(
                     icon: Icons.star_outline,
-                    title: '3. Disfruta y califica',
+                    title: '4. Disfruta',
                     desc: 'Vive la experiencia y deja tu reseña.',
                   ),
                 ],
@@ -201,6 +293,157 @@ class _InicioView extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Tarjeta de alojamiento destacado: foto arriba + datos + rating + precio.
+class _FeaturedCard extends StatelessWidget {
+  final Accommodation accommodation;
+  final VoidCallback onTap;
+  const _FeaturedCard({required this.accommodation, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final a = accommodation;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ClipRRect(
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(12)),
+                child: EcoImage(url: a.imageUrl, height: 170),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            a.name,
+                            style: const TextStyle(
+                                fontSize: 16, fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        _TypeBadge(type: a.type),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        const Icon(Icons.place_outlined,
+                            size: 14, color: AppColors.mutedForeground),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            a.location,
+                            style: const TextStyle(
+                                fontSize: 13,
+                                color: AppColors.mutedForeground),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    StarRating(rating: a.rating, reviewCount: a.reviewCount),
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        RichText(
+                          text: TextSpan(
+                            children: [
+                              TextSpan(
+                                text: '\$${a.pricePerNight.round()}',
+                                style: const TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.emerald700,
+                                ),
+                              ),
+                              const TextSpan(
+                                text: '/noche',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: AppColors.mutedForeground,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        ElevatedButton(
+                          onPressed: onTap,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.emerald600,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 18, vertical: 8),
+                            minimumSize: const Size(0, 36),
+                            textStyle: const TextStyle(
+                                fontSize: 13, fontWeight: FontWeight.w600),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          child: const Text('Ver detalle'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TypeBadge extends StatelessWidget {
+  final String type;
+  const _TypeBadge({required this.type});
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: AppColors.emerald100,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        type,
+        style: const TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: AppColors.emerald700,
         ),
       ),
     );
