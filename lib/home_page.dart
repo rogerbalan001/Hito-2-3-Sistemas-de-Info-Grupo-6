@@ -1,64 +1,16 @@
 import 'package:flutter/material.dart';
-import 'models/accommodation.dart';
-import 'services/accommodation_repository.dart';
-import 'services/auth_service.dart';
-import 'accommodation_details_page.dart';
-import 'my_reservations_page.dart';
-import 'profile_page.dart';
-import 'theme/app_theme.dart';
+import 'theme/app_theme.dart'; // Ajusta esta ruta si tu archivo app_theme.dart está en otra carpeta
+import 'add_accommodation_page.dart';
 
-/// Shell principal tras iniciar sesión. Contiene el menú inferior que alterna
-/// entre Inicio, Mis Reservas y Perfil. Usa IndexedStack para conservar el
-/// estado de cada pestaña al cambiar entre ellas.
-class HomePage extends StatefulWidget {
-  const HomePage({Key? key}) : super(key: key);
-
-  @override
-  State<HomePage> createState() => _HomePageState();
-}
-
-class _HomePageState extends State<HomePage> {
-  int _index = 0;
-
-  final _pages = const [
-    _InicioView(),
-    MyReservationsPage(),
-    ProfilePage(),
-  ];
+class HomePage extends StatelessWidget {
+  const HomePage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: IndexedStack(index: _index, children: _pages),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _index,
-        backgroundColor: Colors.white,
-        indicatorColor: AppColors.emerald100,
-        onDestinationSelected: (i) => setState(() => _index = i),
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home, color: AppColors.emerald700),
-            label: 'Inicio',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.receipt_long_outlined),
-            selectedIcon:
-                Icon(Icons.receipt_long, color: AppColors.emerald700),
-            label: 'Reservas',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            selectedIcon: Icon(Icons.person, color: AppColors.emerald700),
-            label: 'Perfil',
-          ),
-        ],
-      ),
-    );
+    return const _InicioView();
   }
 }
 
-/// Pestaña de Inicio: hero, estadísticas, alojamientos destacados y pasos.
 class _InicioView extends StatelessWidget {
   const _InicioView();
 
@@ -146,7 +98,7 @@ class _InicioView extends StatelessWidget {
       body: ListView(
         padding: EdgeInsets.zero,
         children: [
-          // USAMOS UN STACK PARA ENLAZAR EL HERO Y LAS TARJETAS SUPERPUESTAS (OVERLAP)
+          // STACK PARA MONTAR EL HERO Y LAS ESTADÍSTICAS SUPERPUESTAS (OVERLAP)
           Stack(
             clipBehavior: Clip.none,
             children: [
@@ -161,7 +113,6 @@ class _InicioView extends StatelessWidget {
                   ),
                 ),
                 child: Container(
-                  // Capa oscura degradada para que el texto blanco contraste
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       begin: Alignment.topCenter,
@@ -189,7 +140,7 @@ class _InicioView extends StatelessWidget {
                         'Encuentra hospedajes sostenibles y económicos en toda Venezuela',
                         style: TextStyle(
                           fontSize: 18,
-                          color: Colors.white70,
+                          color: Colors.white70, 
                           fontWeight: FontWeight.w400,
                         ),
                       ),
@@ -221,11 +172,10 @@ class _InicioView extends StatelessWidget {
                             height: 48,
                             child: OutlinedButton.icon(
                               onPressed: () {
-                                // Redirige directamente al formulario de AddAccommodationPage
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (_) => AddAccommodationPage(),
+                                    builder: (_) => const AddAccommodationPage(),
                                   ),
                                 );
                               },
@@ -248,7 +198,7 @@ class _InicioView extends StatelessWidget {
                 ),
               ),
               
-              // 3. CONTENEDOR DE ESTADÍSTICAS HORIZONTAL (SOLAPADO -40px)
+              // 3. CONTENEDOR DE ESTADÍSTICAS HORIZONTAL (SOLAPADO)
               Positioned(
                 bottom: -40,
                 left: 24,
@@ -296,7 +246,6 @@ class _InicioView extends StatelessWidget {
             ],
           ),
           
-          // Espacio de separación provocado por el desfase de las estadísticas
           const SizedBox(height: 80),
 
           // 4. SECCIÓN INTERNA: ¿CÓMO FUNCIONA?
@@ -346,17 +295,24 @@ class _InicioView extends StatelessWidget {
   }
 }
 
-/// Tarjeta de alojamiento destacado: foto arriba + datos + rating + precio.
-class _FeaturedCard extends StatelessWidget {
-  final Accommodation accommodation;
-  final VoidCallback onTap;
-  const _FeaturedCard({required this.accommodation, required this.onTap});
+// TARJETA DE ESTADÍSTICAS INDIVIDUAL
+class _StatCard extends StatelessWidget {
+  final IconData icon;
+  final String value;
+  final String label;
+  final Color color;
+
+  const _StatCard({
+    required this.icon,
+    required this.value,
+    required this.label,
+    required this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final a = accommodation;
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
@@ -369,190 +325,39 @@ class _FeaturedCard extends StatelessWidget {
           ),
         ],
       ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              ClipRRect(
-                borderRadius:
-                    const BorderRadius.vertical(top: Radius.circular(12)),
-                child: EcoImage(url: a.imageUrl, height: 170),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            a.name,
-                            style: const TextStyle(
-                                fontSize: 16, fontWeight: FontWeight.w600),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        _TypeBadge(type: a.type),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        const Icon(Icons.place_outlined,
-                            size: 14, color: AppColors.mutedForeground),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            a.location,
-                            style: const TextStyle(
-                                fontSize: 13,
-                                color: AppColors.mutedForeground),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    StarRating(rating: a.rating, reviewCount: a.reviewCount),
-                    const SizedBox(height: 12),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        RichText(
-                          text: TextSpan(
-                            children: [
-                              TextSpan(
-                                text: '\$${a.pricePerNight.round()}',
-                                style: const TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.w700,
-                                  color: AppColors.emerald700,
-                                ),
-                              ),
-                              const TextSpan(
-                                text: '/noche',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: AppColors.mutedForeground,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        ElevatedButton(
-                          onPressed: onTap,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.emerald600,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 18, vertical: 8),
-                            minimumSize: const Size(0, 36),
-                            textStyle: const TextStyle(
-                                fontSize: 13, fontWeight: FontWeight.w600),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                          child: const Text('Ver detalle'),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ],
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 28),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: AppColors.foreground,
+            ),
           ),
-        ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 12,
+              color: AppColors.mutedForeground,
+            ),
+          ),
+        ],
       ),
     );
   }
 }
 
-class _TypeBadge extends StatelessWidget {
-  final String type;
-  const _TypeBadge({required this.type});
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-        color: AppColors.emerald100,
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        type,
-        style: const TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-          color: AppColors.emerald700,
-        ),
-      ),
-    );
-  }
-}
-
-/// Tarjeta de estadística decorativa (estilo del diseño).
-class _StatCard extends StatelessWidget {
-  final IconData icon;
-  final String value;
-  final String label;
-  final Color color;
-  const _StatCard({
-    required this.icon,
-    required this.value,
-    required this.label,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.border),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.06),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Column(
-          children: [
-            Icon(icon, color: color, size: 24),
-            const SizedBox(height: 4),
-            Text(
-              value,
-              style:
-                  const TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
-            ),
-            Text(
-              label,
-              style: const TextStyle(
-                  fontSize: 12, color: AppColors.mutedForeground),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Paso de "¿Cómo Funciona?" con ícono en círculo emerald.
+// TARJETA DE PASOS INTERNOS
 class _StepCard extends StatelessWidget {
   final IconData icon;
   final String title;
   final String desc;
+
   const _StepCard({
     required this.icon,
     required this.title,
@@ -565,13 +370,12 @@ class _StepCard extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
-          width: 56,
-          height: 56,
+          padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: AppColors.emerald100,
-            borderRadius: BorderRadius.circular(16),
+            color: AppColors.emerald50,
+            borderRadius: BorderRadius.circular(8),
           ),
-          child: Icon(icon, color: AppColors.emerald700, size: 28),
+          child: Icon(icon, color: AppColors.emerald600, size: 24),
         ),
         const SizedBox(width: 16),
         Expanded(
@@ -580,14 +384,20 @@ class _StepCard extends StatelessWidget {
             children: [
               Text(
                 title,
-                style:
-                    const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.foreground,
+                ),
               ),
               const SizedBox(height: 4),
               Text(
                 desc,
                 style: const TextStyle(
-                    fontSize: 14, color: AppColors.mutedForeground),
+                  color: AppColors.mutedForeground,
+                  fontSize: 14,
+                  height: 1.4,
+                ),
               ),
             ],
           ),
