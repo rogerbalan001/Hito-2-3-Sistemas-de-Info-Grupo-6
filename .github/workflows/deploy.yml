@@ -26,8 +26,10 @@ jobs:
       - name: Descargar dependencias
         run: flutter pub get
 
+      # IMPORTANTE: el base-href debe ser EXACTAMENTE el nombre del repositorio,
+      # con barra al inicio y al final. Si renombras el repo, actualiza esto.
       - name: Compilar a web
-        run: flutter build web --release --base-href "/Hito23fake/"
+        run: flutter build web --release --base-href "/Hito-2-3-Sistemas-de-Info-Grupo-6/"
 
       - name: Publicar en GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
