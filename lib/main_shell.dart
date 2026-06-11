@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'services/auth_service.dart';
+import 'services/profile_service.dart';
+import 'services/session.dart';
 import 'theme/app_theme.dart';
 import 'inicio_page.dart';
 import 'search_page.dart';
@@ -12,9 +14,11 @@ import 'admin_page.dart';
 import 'profile_page.dart';
 
 /// Estructura principal con la barra de navegación superior del diseño Figma.
-/// En pantallas anchas muestra las 8 pestañas en fila; en pantallas angostas
-/// usa un menú lateral (hamburguesa). El contenido se intercambia con
-/// IndexedStack para conservar el estado de cada pestaña.
+/// Las pestañas visibles dependen del MODO de la cuenta (Session.isAdmin):
+///  - Administrador: ve las 8 pestañas.
+///  - Viajero: NO ve Operadores, Dashboard ni Administración.
+/// En pantallas anchas las pestañas van en fila; en angostas, en un menú
+/// lateral (hamburguesa). El contenido se intercambia con IndexedStack.
 class MainShell extends StatefulWidget {
   final int initialIndex;
   const MainShell({Key? key, this.initialIndex = 0}) : super(key: key);
@@ -37,13 +41,30 @@ class _MainShellState extends State<MainShell> {
     _NavItem('Administración', Icons.settings_outlined),
   ];
 
-  void _go(int i) {
-    setState(() => _index = i);
-    if (Navigator.canPop(context)) {
-      // Cierra el drawer si está abierto.
-      Navigator.maybePop(context);
+  // Índices de pestañas que solo ve el administrador.
+  static const _adminOnly = {5, 6, 7};
+
+  @override
+  void initState() {
+    super.initState();
+    _cargarModo();
+  }
+
+  /// Lee el modo persistido en el perfil y actualiza Session.isAdmin.
+  Future<void> _cargarModo() async {
+    try {
+      final perfil = await ProfileService().obtenerPerfil();
+      final modo = perfil?['modo'] as String?;
+      Session.setAdmin(modo == 'admin');
+    } catch (_) {
+      // Si falla la lectura, se queda en modo viajero por defecto.
     }
   }
+
+  /// Índices de pestañas visibles según el modo actual.
+  List<int> get _visible => Session.isAdmin.value
+      ? const [0, 1, 2, 3, 4, 5, 6, 7]
+      : const [0, 1, 2, 3, 4];
 
   List<Widget> get _pages => [
         InicioPage(onNavigate: _go),
@@ -56,58 +77,71 @@ class _MainShellState extends State<MainShell> {
         const AdminPage(),
       ];
 
+  void _go(int i) {
+    setState(() => _index = i);
+    if (Navigator.canPop(context)) {
+      Navigator.maybePop(context); // cierra el drawer si está abierto
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final wide = MediaQuery.of(context).size.width >= 1100;
+    // Se reconstruye cuando cambia el modo (admin/viajero).
+    return ValueListenableBuilder<bool>(
+      valueListenable: Session.isAdmin,
+      builder: (context, isAdmin, _) {
+        // Si el modo actual oculta la pestaña activa, vuelve a Inicio.
+        if (!isAdmin && _adminOnly.contains(_index)) {
+          _index = 0;
+        }
+        final wide = MediaQuery.of(context).size.width >= 1100;
+        final visible = _visible;
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        scrolledUnderElevation: 0.5,
-        titleSpacing: wide ? 24 : 12,
-        title: wide
-            ? Row(
-                children: [
-                  GestureDetector(
-                    onTap: () => setState(() => _index = 0),
-                    child: const EcoSpotLogo(),
-                  ),
+        return Scaffold(
+          backgroundColor: AppColors.background,
+          appBar: AppBar(
+            backgroundColor: Colors.white,
+            scrolledUnderElevation: 0.5,
+            titleSpacing: wide ? 24 : 12,
+            title: Row(
+              children: [
+                GestureDetector(
+                  onTap: () => setState(() => _index = 0),
+                  child: const EcoSpotLogo(),
+                ),
+                if (wide) ...[
+                  const SizedBox(width: 24),
                   Expanded(
-                    child: Center(
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            for (var i = 0; i < _items.length; i++)
-                              _NavButton(
-                                item: _items[i],
-                                active: _index == i,
-                                onTap: () => setState(() => _index = i),
-                              ),
-                          ],
-                        ),
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          for (final i in visible)
+                            _NavButton(
+                              item: _items[i],
+                              active: _index == i,
+                              onTap: () => setState(() => _index = i),
+                            ),
+                        ],
                       ),
                     ),
                   ),
                 ],
-              )
-            : GestureDetector(
-                onTap: () => setState(() => _index = 0),
-                child: const EcoSpotLogo(),
-              ),
-        actions: [
-          _UserMenu(),
-          const SizedBox(width: 8),
-        ],
-      ),
-      drawer: wide ? null : _buildDrawer(context),
-      body: IndexedStack(index: _index, children: _pages),
+              ],
+            ),
+            actions: [
+              _UserMenu(),
+              const SizedBox(width: 8),
+            ],
+          ),
+          drawer: wide ? null : _buildDrawer(context, visible),
+          body: IndexedStack(index: _index, children: _pages),
+        );
+      },
     );
   }
 
-  Widget _buildDrawer(BuildContext context) {
+  Widget _buildDrawer(BuildContext context, List<int> visible) {
     return Drawer(
       child: SafeArea(
         child: Column(
@@ -124,7 +158,7 @@ class _MainShellState extends State<MainShell> {
               child: ListView(
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 children: [
-                  for (var i = 0; i < _items.length; i++)
+                  for (final i in visible)
                     ListTile(
                       leading: Icon(_items[i].icon,
                           color: _index == i
@@ -228,6 +262,7 @@ class _UserMenu extends StatelessWidget {
           Navigator.push(context,
               MaterialPageRoute(builder: (_) => const ProfilePage()));
         } else if (v == 'logout') {
+          Session.reset();
           await AuthService().logout();
           if (context.mounted) {
             Navigator.pushReplacementNamed(context, '/login');

@@ -46,13 +46,11 @@ class InicioPage extends StatelessWidget {
                   ),
                 ),
               ),
-              Center(
-                child: Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 24, vertical: 64),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 64),
+                child: Column(
+                  children: [
                     const Text(
                       'Viaja Más, Gasta Menos',
                       textAlign: TextAlign.center,
@@ -65,7 +63,7 @@ class InicioPage extends StatelessWidget {
                     const SizedBox(height: 14),
                     ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 620),
-                      child: Text(
+                      child: const Text(
                         'Encuentra alojamientos económicos, paquetes '
                         'turísticos accesibles y transporte público '
                         'disponible. Tu próxima aventura no tiene que ser '
@@ -124,7 +122,6 @@ class InicioPage extends StatelessWidget {
                   ],
                 ),
               ),
-            ), // cierra Center
             ],
           ),
         ),

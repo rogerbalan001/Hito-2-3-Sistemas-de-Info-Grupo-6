@@ -44,4 +44,15 @@ class ProfileService {
     // Sincroniza el nombre visible de la cuenta.
     await usuario.updateDisplayName(nombre);
   }
+
+  /// Guarda solo el modo de la cuenta ('admin' o 'viajero') sin tocar el resto
+  /// del perfil. Se usa al cambiar entre modo administrador y viajero.
+  Future<void> guardarModo(String modo) async {
+    final usuario = AuthService().currentUser;
+    if (usuario == null) return;
+    await _usuarios.doc(usuario.uid).set({
+      'modo': modo,
+      'email': usuario.email,
+    }, SetOptions(merge: true));
+  }
 }

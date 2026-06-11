@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'services/auth_service.dart';
 import 'services/profile_service.dart';
+import 'services/session.dart';
 import 'theme/app_theme.dart';
 import 'add_accommodation_page.dart';
 
@@ -24,6 +25,9 @@ class _ProfilePageState extends State<ProfilePage> {
 
   static const _roles = ['Viajero', 'Operador turístico'];
   String _rol = 'Viajero';
+
+  // Modo de la app: true = Administrador, false = Viajero.
+  bool _esAdmin = Session.isAdmin.value;
 
   bool _cargando = true;
   bool _guardando = false;
@@ -53,6 +57,9 @@ class _ProfilePageState extends State<ProfilePage> {
       if (rolGuardado != null && _roles.contains(rolGuardado)) {
         _rol = rolGuardado;
       }
+      // Sincroniza el modo de la app (admin/viajero) con lo guardado.
+      _esAdmin = (datos?['modo'] as String?) == 'admin';
+      Session.setAdmin(_esAdmin);
       _cargando = false;
     });
   }
@@ -85,6 +92,93 @@ class _ProfilePageState extends State<ProfilePage> {
     } finally {
       if (mounted) setState(() => _guardando = false);
     }
+  }
+
+  /// Cambia el modo de la app. Para activar Administrador pide la contraseña;
+  /// para volver a Viajero no pide nada.
+  Future<void> _cambiarModo(bool admin) async {
+    if (admin == _esAdmin) return;
+
+    if (admin) {
+      final ok = await _pedirPasswordAdmin();
+      if (ok != true) return;
+    }
+
+    Session.setAdmin(admin);
+    setState(() => _esAdmin = admin);
+    try {
+      await _profile.guardarModo(admin ? 'admin' : 'viajero');
+    } catch (_) {
+      // Aunque falle la persistencia, el modo ya se aplicó en esta sesión.
+    }
+    _showMessage(admin
+        ? 'Modo Administrador activado'
+        : 'Modo Viajero activado');
+  }
+
+  /// Diálogo que solicita la contraseña de administrador.
+  Future<bool?> _pedirPasswordAdmin() {
+    final controller = TextEditingController();
+    String? error;
+    return showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (dialogContext, setStateDialog) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16)),
+              title: const Text('Modo Administrador'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                      'Ingresa la contraseña para activar el modo '
+                      'administrador.'),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: controller,
+                    obscureText: true,
+                    autofocus: true,
+                    onSubmitted: (_) {
+                      if (controller.text == Session.adminPassword) {
+                        Navigator.pop(dialogContext, true);
+                      } else {
+                        setStateDialog(
+                            () => error = 'Contraseña incorrecta');
+                      }
+                    },
+                    decoration: InputDecoration(
+                      hintText: 'Contraseña',
+                      prefixIcon: const Icon(Icons.lock_outline),
+                      errorText: error,
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext, false),
+                  child: const Text('Cancelar'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    if (controller.text == Session.adminPassword) {
+                      Navigator.pop(dialogContext, true);
+                    } else {
+                      setStateDialog(
+                          () => error = 'Contraseña incorrecta');
+                    }
+                  },
+                  child: const Text('Activar'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 
   @override
@@ -213,6 +307,46 @@ class _ProfilePageState extends State<ProfilePage> {
                   ),
                 ),
 
+                // Selector de MODO de la aplicación.
+                const SizedBox(height: 24),
+                const Divider(),
+                const SizedBox(height: 12),
+                const _Label('Modo de la aplicación'),
+                Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: AppColors.inputBackground,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: Row(
+                    children: [
+                      _ModoBtn(
+                        label: 'Viajero',
+                        icon: Icons.luggage_outlined,
+                        active: !_esAdmin,
+                        onTap: () => _cambiarModo(false),
+                      ),
+                      _ModoBtn(
+                        label: 'Administrador',
+                        icon: Icons.admin_panel_settings_outlined,
+                        active: _esAdmin,
+                        onTap: () => _cambiarModo(true),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  _esAdmin
+                      ? 'Ves todas las pestañas, incluidas Operadores, '
+                          'Dashboard y Administración.'
+                      : 'Modo viajero: no se muestran Operadores, Dashboard '
+                          'ni Administración.',
+                  style: const TextStyle(
+                      fontSize: 12, color: AppColors.mutedForeground),
+                ),
+
                 // Acceso al módulo de publicación (operadores).
                 const SizedBox(height: 24),
                 const Divider(),
@@ -262,6 +396,54 @@ class _Label extends StatelessWidget {
           fontSize: 13,
           fontWeight: FontWeight.w600,
           color: AppColors.foreground,
+        ),
+      ),
+    );
+  }
+}
+
+/// Botón segmentado para elegir el modo (Viajero / Administrador).
+class _ModoBtn extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final bool active;
+  final VoidCallback onTap;
+  const _ModoBtn({
+    required this.label,
+    required this.icon,
+    required this.active,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Material(
+        color: active ? AppColors.emerald600 : Colors.transparent,
+        borderRadius: BorderRadius.circular(9),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(9),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon,
+                    size: 18,
+                    color: active ? Colors.white : AppColors.mutedForeground),
+                const SizedBox(width: 6),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: active ? Colors.white : AppColors.foreground,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
