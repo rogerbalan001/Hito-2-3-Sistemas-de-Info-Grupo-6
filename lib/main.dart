@@ -2,9 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'login_page.dart';
-import 'home_page.dart';
 import 'register_page.dart';
-import 'search_page.dart';
+import 'main_shell.dart';
 import 'theme/app_theme.dart';
 
 void main() async {
@@ -31,8 +30,8 @@ class EcoSpotApp extends StatelessWidget {
       routes: {
         '/login': (context) => const LoginPage(),
         '/register': (context) => const RegisterPage(),
-        '/home': (context) => const HomePage(),
-        '/search': (context) => const SearchPage(),
+        // Tras iniciar sesión se entra al shell con la barra superior del Figma.
+        '/home': (context) => const MainShell(),
       },
     );
   }

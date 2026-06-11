@@ -1,26 +1,26 @@
 /// Capa de DATOS - Modelo de dominio.
 /// Representa un alojamiento económico publicado en EcoSpot.
-/// Se mantiene libre de dependencias de Flutter para no acoplar
-/// la lógica de negocio con la interfaz.
 class Accommodation {
   final String name;
   final String location;
-  final String type; // Posada, Camping, Hostal, Cabaña, Eco-Lodge
+  final String region;
+  final String type; // Posada, Camping, Hostel, Cabaña, Eco-Lodge
   final double pricePerNight;
-
-  // Datos enriquecidos usados por las tarjetas y la vista de detalle (CU-02),
-  // alineados con el diseño del Figma (rating con estrellas, foto, amenidades).
   final double rating;
   final int reviewCount;
   final String? imageUrl;
   final String? description;
   final int? capacity;
+  final List<String> transport; // bus, tren, lancha, colectivo
   final List<String> amenities;
   final List<String> rules;
+  final String operatorId;
+  final bool available;
 
   const Accommodation({
     required this.name,
     required this.location,
+    this.region = '',
     required this.type,
     required this.pricePerNight,
     this.rating = 0,
@@ -28,12 +28,13 @@ class Accommodation {
     this.imageUrl,
     this.description,
     this.capacity,
+    this.transport = const [],
     this.amenities = const [],
     this.rules = const [],
+    this.operatorId = '',
+    this.available = true,
   });
 
-  /// Construye un Accommodation a partir de un documento de Firestore
-  /// (colección "accommodations"). Tolera campos ausentes.
   factory Accommodation.fromMap(Map<String, dynamic> map) {
     return Accommodation(
       name: (map['nombre'] ?? '') as String,

@@ -227,3 +227,44 @@ class StarRating extends StatelessWidget {
     );
   }
 }
+
+/// Pie de página verde, como en el diseño.
+class EcoFooter extends StatelessWidget {
+  const EcoFooter({super.key});
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      color: AppColors.emerald900,
+      padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+      child: const Text(
+        '© 2026 EcoSpot - Gestión de Turismo Económico.\n'
+        'Todos los derechos reservados.',
+        textAlign: TextAlign.center,
+        style: TextStyle(color: AppColors.emerald100, fontSize: 13),
+      ),
+    );
+  }
+}
+
+/// Encabezado de sección reutilizable: título + acción "Ver todos".
+class SectionHeader extends StatelessWidget {
+  final String title;
+  final VoidCallback? onSeeAll;
+  const SectionHeader({super.key, required this.title, this.onSeeAll});
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Expanded(
+          child: Text(title,
+              style: const TextStyle(
+                  fontSize: 20, fontWeight: FontWeight.w700)),
+        ),
+        if (onSeeAll != null)
+          TextButton(onPressed: onSeeAll, child: const Text('Ver todos')),
+      ],
+    );
+  }
+}

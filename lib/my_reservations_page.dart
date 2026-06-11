@@ -27,10 +27,12 @@ class MyReservationsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(title: const Text('Mis Reservas')),
-      body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const _ReservasHeader(),
+        Expanded(
+          child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
         stream: ReservationService().misReservas(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -79,7 +81,9 @@ class MyReservationsPage extends StatelessWidget {
             },
           );
         },
-      ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -216,6 +220,74 @@ class _EstadoVacio extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Encabezado de la pestaña Reservas: título + flujo de estados del Figma
+/// (Solicitado → Aceptado → Pagado → Disfrutado).
+class _ReservasHeader extends StatelessWidget {
+  const _ReservasHeader();
+
+  @override
+  Widget build(BuildContext context) {
+    const pasos = [
+      ['Solicitado', AppColors.amber500],
+      ['Aceptado', AppColors.blue600],
+      ['Pagado', AppColors.emerald600],
+      ['Disfrutado', AppColors.emerald800],
+    ];
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Mis Reservas',
+            style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Sigue el estado de tus solicitudes de reserva',
+            style: TextStyle(color: AppColors.mutedForeground),
+          ),
+          const SizedBox(height: 16),
+          // Flujo de estados.
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                for (var i = 0; i < pasos.length; i++) ...[
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: (pasos[i][1] as Color).withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      pasos[i][0] as String,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: pasos[i][1] as Color,
+                      ),
+                    ),
+                  ),
+                  if (i < pasos.length - 1)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 4),
+                      child: Icon(Icons.arrow_forward,
+                          size: 14, color: AppColors.mutedForeground),
+                    ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+        ],
       ),
     );
   }
