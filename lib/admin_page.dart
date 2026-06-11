@@ -38,8 +38,11 @@ class _AdminPageState extends State<AdminPage> {
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 24, 16, 32),
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 1100),
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 24, 16, 32),
       children: [
         const Text(
           'Administración',
@@ -71,6 +74,8 @@ class _AdminPageState extends State<AdminPage> {
         // Tarjeta con la tabla de la pestaña activa.
         _card(),
       ],
+        ),
+      ),
     );
   }
 

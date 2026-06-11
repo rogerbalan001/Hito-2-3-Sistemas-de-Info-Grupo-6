@@ -144,13 +144,7 @@ class _MainShellState extends State<MainShell> {
             ),
           ),
           drawer: wide ? null : _buildDrawer(context, visible),
-          // Contenido centrado dentro del mismo ancho máximo.
-          body: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 1200),
-              child: IndexedStack(index: _index, children: _pages),
-            ),
-          ),
+          body: IndexedStack(index: _index, children: _pages),
         );
       },
     );

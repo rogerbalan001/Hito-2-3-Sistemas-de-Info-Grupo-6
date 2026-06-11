@@ -35,6 +35,7 @@ class InicioPage extends StatelessWidget {
           width: double.infinity,
           color: AppColors.emerald800,
           child: Stack(
+            alignment: Alignment.center,
             children: [
               Positioned.fill(
                 child: Opacity(
