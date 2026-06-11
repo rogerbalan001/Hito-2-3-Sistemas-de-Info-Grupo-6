@@ -66,32 +66,37 @@ class _MainShellState extends State<MainShell> {
         backgroundColor: Colors.white,
         scrolledUnderElevation: 0.5,
         titleSpacing: wide ? 24 : 12,
-        title: Row(
-          children: [
-            GestureDetector(
-              onTap: () => setState(() => _index = 0),
-              child: const EcoSpotLogo(),
-            ),
-            if (wide) ...[
-              const SizedBox(width: 24),
-              Expanded(
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      for (var i = 0; i < _items.length; i++)
-                        _NavButton(
-                          item: _items[i],
-                          active: _index == i,
-                          onTap: () => setState(() => _index = i),
-                        ),
-                    ],
+        title: wide
+            ? Row(
+                children: [
+                  GestureDetector(
+                    onTap: () => setState(() => _index = 0),
+                    child: const EcoSpotLogo(),
                   ),
-                ),
+                  Expanded(
+                    child: Center(
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            for (var i = 0; i < _items.length; i++)
+                              _NavButton(
+                                item: _items[i],
+                                active: _index == i,
+                                onTap: () => setState(() => _index = i),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              )
+            : GestureDetector(
+                onTap: () => setState(() => _index = 0),
+                child: const EcoSpotLogo(),
               ),
-            ],
-          ],
-        ),
         actions: [
           _UserMenu(),
           const SizedBox(width: 8),
