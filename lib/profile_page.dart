@@ -265,27 +265,32 @@ class _ProfilePageState extends State<ProfilePage> {
 
                 const _Label('Tipo de cuenta'),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 14, vertical: 12),
                   decoration: BoxDecoration(
-                    color: AppColors.inputBackground,
+                    color: AppColors.emerald50,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.border),
+                    border: Border.all(color: AppColors.emerald200),
                   ),
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<String>(
-                      value: _rol,
-                      isExpanded: true,
-                      icon: const Icon(Icons.keyboard_arrow_down,
-                          color: AppColors.mutedForeground),
-                      items: _roles
-                          .map((r) => DropdownMenuItem(
-                                value: r,
-                                child: Text(r),
-                              ))
-                          .toList(),
-                      onChanged: (val) =>
-                          setState(() => _rol = val ?? _rol),
-                    ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        _esAdmin
+                            ? Icons.admin_panel_settings_outlined
+                            : Icons.luggage_outlined,
+                        size: 18,
+                        color: AppColors.emerald700,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        _esAdmin ? 'Administrador' : 'Viajero',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.emerald700,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 const SizedBox(height: 24),

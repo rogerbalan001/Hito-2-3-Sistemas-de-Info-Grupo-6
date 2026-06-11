@@ -102,40 +102,55 @@ class _MainShellState extends State<MainShell> {
           appBar: AppBar(
             backgroundColor: Colors.white,
             scrolledUnderElevation: 0.5,
-            titleSpacing: wide ? 24 : 12,
-            title: Row(
-              children: [
-                GestureDetector(
-                  onTap: () => setState(() => _index = 0),
-                  child: const EcoSpotLogo(),
-                ),
-                if (wide) ...[
-                  const SizedBox(width: 24),
-                  Expanded(
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: [
-                          for (final i in visible)
-                            _NavButton(
-                              item: _items[i],
-                              active: _index == i,
-                              onTap: () => setState(() => _index = i),
-                            ),
-                        ],
+            titleSpacing: wide ? 0 : 8,
+            // Encabezado centrado dentro de un ancho máximo (como el Figma).
+            title: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 1200),
+                child: Padding(
+                  padding:
+                      EdgeInsets.symmetric(horizontal: wide ? 24 : 8),
+                  child: Row(
+                    children: [
+                      GestureDetector(
+                        onTap: () => setState(() => _index = 0),
+                        child: const EcoSpotLogo(),
                       ),
-                    ),
+                      if (wide) ...[
+                        const SizedBox(width: 24),
+                        Expanded(
+                          child: SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: Row(
+                              children: [
+                                for (final i in visible)
+                                  _NavButton(
+                                    item: _items[i],
+                                    active: _index == i,
+                                    onTap: () =>
+                                        setState(() => _index = i),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ] else
+                        const Spacer(),
+                      _UserMenu(),
+                    ],
                   ),
-                ],
-              ],
+                ),
+              ),
             ),
-            actions: [
-              _UserMenu(),
-              const SizedBox(width: 8),
-            ],
           ),
           drawer: wide ? null : _buildDrawer(context, visible),
-          body: IndexedStack(index: _index, children: _pages),
+          // Contenido centrado dentro del mismo ancho máximo.
+          body: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1200),
+              child: IndexedStack(index: _index, children: _pages),
+            ),
+          ),
         );
       },
     );

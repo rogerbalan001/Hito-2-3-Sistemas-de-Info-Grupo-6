@@ -38,44 +38,39 @@ class _AdminPageState extends State<AdminPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 1100),
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 24, 16, 32),
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 24, 16, 32),
+      children: [
+        const Text(
+          'Administración',
+          style: TextStyle(fontSize: 26, fontWeight: FontWeight.w700),
+        ),
+        const SizedBox(height: 4),
+        const Text(
+          'Tablas de mantenimiento para la gestión del sistema',
+          style: TextStyle(color: AppColors.mutedForeground),
+        ),
+        const SizedBox(height: 20),
+
+        // Pestañas tipo chip.
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
           children: [
-            const Text(
-              'Administración',
-              style: TextStyle(fontSize: 26, fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 4),
-            const Text(
-              'Tablas de mantenimiento para la gestión del sistema',
-              style: TextStyle(color: AppColors.mutedForeground),
-            ),
-            const SizedBox(height: 20),
-
-            // Pestañas tipo chip.
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: [
-                for (var i = 0; i < _tabs.length; i++)
-                  _TabChip(
-                    label: _tabs[i],
-                    active: _tab == i,
-                    badge: i == 5 && _pendientes > 0 ? _pendientes : null,
-                    onTap: () => setState(() => _tab = i),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 20),
-
-            // Tarjeta con la tabla de la pestaña activa.
-            _card(),
+            for (var i = 0; i < _tabs.length; i++)
+              _TabChip(
+                label: _tabs[i],
+                active: _tab == i,
+                badge: i == 5 && _pendientes > 0 ? _pendientes : null,
+                onTap: () => setState(() => _tab = i),
+              ),
           ],
         ),
-      ),
+        const SizedBox(height: 20),
+
+        // Tarjeta con la tabla de la pestaña activa.
+        _card(),
+      ],
     );
   }
 
