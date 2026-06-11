@@ -61,7 +61,7 @@ class InicioPage extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 14),
-                    const ConstrainedBox(
+                    ConstrainedBox(
                       constraints: BoxConstraints(maxWidth: 620),
                       child: Text(
                         'Encuentra alojamientos económicos, paquetes '
