@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'services/auth_service.dart';
-import 'services/profile_service.dart';
 import 'services/session.dart';
 import 'theme/app_theme.dart';
 import 'inicio_page.dart';
@@ -47,18 +46,14 @@ class _MainShellState extends State<MainShell> {
   @override
   void initState() {
     super.initState();
-    _cargarModo();
+    _aplicarModoAdmin();
   }
 
-  /// Lee el modo persistido en el perfil y actualiza Session.isAdmin.
-  Future<void> _cargarModo() async {
-    try {
-      final perfil = await ProfileService().obtenerPerfil();
-      final modo = perfil?['modo'] as String?;
-      Session.setAdmin(modo == 'admin');
-    } catch (_) {
-      // Si falla la lectura, se queda en modo viajero por defecto.
-    }
+  /// Determina el modo administrador desde el backend: la cuenta es admin solo
+  /// si su correo está en la lista cableada (AuthService.adminEmails). Ya no se
+  /// lee de un campo persistido que el usuario pudiera manipular.
+  void _aplicarModoAdmin() {
+    Session.setAdmin(AuthService().isCurrentUserAdmin);
   }
 
   /// Índices de pestañas visibles según el modo actual.

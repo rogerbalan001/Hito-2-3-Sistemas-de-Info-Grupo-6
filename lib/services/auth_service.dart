@@ -13,10 +13,34 @@ class AuthService {
 
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
+  /// LISTA CABLEADA (hardcoded) DE ADMINISTRADORES.
+  /// El acceso al modo administrador NO se puede activar desde la interfaz:
+  /// solo las cuentas cuyo correo aparezca en esta lista, definida aquí en el
+  /// backend, obtienen los privilegios de administrador automáticamente al
+  /// iniciar sesión.
+  ///
+  /// Para autorizar a un administrador, agrega su correo institucional aquí
+  /// (en minúsculas). Reemplaza el correo de ejemplo por los reales.
+  static const List<String> adminEmails = <String>[
+    'admin@unimet.edu.ve',
+    // 'otro.admin@correo.unimet.edu.ve',
+  ];
+
   /// Usuario autenticado actualmente (null si no hay sesión).
   User? get currentUser => _auth.currentUser;
 
   bool get isLoggedIn => _auth.currentUser != null;
+
+  /// Indica si el correo dado pertenece a un administrador autorizado.
+  /// La comparación es insensible a mayúsculas/minúsculas y a espacios.
+  bool isAdminEmail(String? email) {
+    if (email == null) return false;
+    return adminEmails.contains(email.trim().toLowerCase());
+  }
+
+  /// Indica si el usuario con sesión activa es administrador (según la lista
+  /// cableada en el backend). Es la ÚNICA fuente de verdad para el modo admin.
+  bool get isCurrentUserAdmin => isAdminEmail(currentUser?.email);
 
   /// Registra un nuevo usuario en Firebase.
   /// Devuelve `null` si todo salió bien, o un mensaje de error en español.
