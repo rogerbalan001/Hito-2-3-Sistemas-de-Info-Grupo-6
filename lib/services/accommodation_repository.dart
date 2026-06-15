@@ -19,8 +19,9 @@ class AccommodationRepository {
   /// de dominio con [Accommodation.fromMap].
   Stream<List<Accommodation>> watchAll() {
     return _accommodations.snapshots().map(
-          (snap) =>
-              snap.docs.map((d) => Accommodation.fromMap(d.data())).toList(),
+          (snap) => snap.docs
+              .map((d) => Accommodation.fromMap(d.data(), id: d.id))
+              .toList(),
         );
   }
 

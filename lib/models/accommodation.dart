@@ -1,6 +1,9 @@
 /// Capa de DATOS - Modelo de dominio.
 /// Representa un alojamiento económico publicado en EcoSpot.
 class Accommodation {
+  /// Id del documento en Firestore (null para los datos en memoria/mock).
+  /// Necesario para operaciones como eliminar el alojamiento.
+  final String? id;
   final String name;
   final String location;
   final String region;
@@ -18,6 +21,7 @@ class Accommodation {
   final bool available;
 
   const Accommodation({
+    this.id,
     required this.name,
     required this.location,
     this.region = '',
@@ -35,8 +39,9 @@ class Accommodation {
     this.available = true,
   });
 
-  factory Accommodation.fromMap(Map<String, dynamic> map) {
+  factory Accommodation.fromMap(Map<String, dynamic> map, {String? id}) {
     return Accommodation(
+      id: id,
       name: (map['nombre'] ?? '') as String,
       location: (map['destino'] ?? '') as String,
       region: (map['region'] ?? '') as String,

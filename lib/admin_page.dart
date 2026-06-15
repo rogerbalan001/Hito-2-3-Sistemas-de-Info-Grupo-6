@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'data/mock_data.dart';
+import 'models/accommodation.dart';
+import 'services/accommodation_repository.dart';
+import 'services/accommodation_service.dart';
 import 'theme/app_theme.dart';
 
 /// Pantalla de Administración (RF de mantenimiento).
@@ -38,49 +41,55 @@ class _AdminPageState extends State<AdminPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 1100),
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 24, 16, 32),
-      children: [
-        const Text(
-          'Administración',
-          style: TextStyle(fontSize: 26, fontWeight: FontWeight.w700),
-        ),
-        const SizedBox(height: 4),
-        const Text(
-          'Tablas de mantenimiento para la gestión del sistema',
-          style: TextStyle(color: AppColors.mutedForeground),
-        ),
-        const SizedBox(height: 20),
-
-        // Pestañas tipo chip.
-        Wrap(
-          spacing: 10,
-          runSpacing: 10,
+    return StreamBuilder<List<Accommodation>>(
+      stream: AccommodationRepository().watchAll(),
+      builder: (context, snapshot) {
+        final hospedajes = snapshot.data ?? const <Accommodation>[];
+        return Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1100),
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(16, 24, 16, 32),
           children: [
-            for (var i = 0; i < _tabs.length; i++)
-              _TabChip(
-                label: _tabs[i],
-                active: _tab == i,
-                badge: i == 5 && _pendientes > 0 ? _pendientes : null,
-                onTap: () => setState(() => _tab = i),
-              ),
-          ],
-        ),
-        const SizedBox(height: 20),
+            const Text(
+              'Administración',
+              style: TextStyle(fontSize: 26, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'Tablas de mantenimiento para la gestión del sistema',
+              style: TextStyle(color: AppColors.mutedForeground),
+            ),
+            const SizedBox(height: 20),
 
-        // Tarjeta con la tabla de la pestaña activa.
-        _card(),
-      ],
-        ),
-      ),
+            // Pestañas tipo chip.
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                for (var i = 0; i < _tabs.length; i++)
+                  _TabChip(
+                    label: _tabs[i],
+                    active: _tab == i,
+                    badge: i == 5 && _pendientes > 0 ? _pendientes : null,
+                    onTap: () => setState(() => _tab = i),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 20),
+
+            // Tarjeta con la tabla de la pestaña activa.
+            _card(hospedajes),
+          ],
+            ),
+          ),
+        );
+      },
     );
   }
 
-  Widget _card() {
-    final info = _currentTable();
+  Widget _card(List<Accommodation> hospedajes) {
+    final info = _currentTable(hospedajes);
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -142,7 +151,7 @@ class _AdminPageState extends State<AdminPage> {
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
             child: Text(
-              '${_rowCount()} registro(s)',
+              '${_rowCount(hospedajes)} registro(s)',
               style: const TextStyle(
                   fontSize: 13, color: AppColors.mutedForeground),
             ),
@@ -152,10 +161,10 @@ class _AdminPageState extends State<AdminPage> {
     );
   }
 
-  int _rowCount() {
+  int _rowCount(List<Accommodation> hospedajes) {
     switch (_tab) {
       case 0:
-        return MockData.accommodations.length;
+        return hospedajes.length;
       case 1:
         return MockData.statusDistribution.length;
       case 2:
@@ -169,10 +178,10 @@ class _AdminPageState extends State<AdminPage> {
     }
   }
 
-  Widget _currentTable() {
+  Widget _currentTable(List<Accommodation> hospedajes) {
     switch (_tab) {
       case 0:
-        return _hospedajes();
+        return _hospedajes(hospedajes);
       case 1:
         return _tiposReserva();
       case 2:
@@ -222,7 +231,16 @@ class _AdminPageState extends State<AdminPage> {
     ];
   }
 
-  Widget _hospedajes() {
+  Widget _hospedajes(List<Accommodation> hospedajes) {
+    if (hospedajes.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 32),
+        child: Center(
+          child: Text('No hay alojamientos registrados',
+              style: TextStyle(color: AppColors.mutedForeground)),
+        ),
+      );
+    }
     return _table(
       const [
         DataColumn(label: Text('Nombre')),
@@ -233,7 +251,7 @@ class _AdminPageState extends State<AdminPage> {
         DataColumn(label: Text('Estado')),
         DataColumn(label: Text('Acciones')),
       ],
-      MockData.accommodations.map((a) {
+      hospedajes.map((a) {
         return DataRow(cells: [
           DataCell(Text(a.name)),
           DataCell(Text(a.type)),
@@ -241,10 +259,172 @@ class _AdminPageState extends State<AdminPage> {
           DataCell(Text('\$${a.pricePerNight.round()}')),
           DataCell(Text('${a.capacity ?? '-'}')),
           DataCell(_estadoBadge(a.available)),
-          ..._accionesCells(),
+          DataCell(Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.edit_outlined,
+                    size: 18, color: AppColors.blue600),
+                onPressed: () => _editarAlojamiento(a),
+                tooltip: 'Editar',
+              ),
+              IconButton(
+                icon: const Icon(Icons.delete_outline,
+                    size: 18, color: AppColors.red600),
+                onPressed: () => _eliminarAlojamiento(a),
+                tooltip: 'Eliminar',
+              ),
+            ],
+          )),
         ]);
       }).toList(),
     );
+  }
+
+  /// Pide confirmación y elimina el alojamiento de Firestore. La tabla se
+  /// actualiza sola porque escucha la colección en tiempo real.
+  Future<void> _eliminarAlojamiento(Accommodation a) async {
+    if (a.id == null) return;
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Eliminar alojamiento'),
+        content: Text('¿Seguro que deseas eliminar "${a.name}"? '
+            'Esta acción no se puede deshacer.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            style:
+                ElevatedButton.styleFrom(backgroundColor: AppColors.red600),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+    if (confirmar != true) return;
+    try {
+      await AccommodationService().eliminarAlojamiento(a.id!);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('"${a.name}" eliminado')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No se pudo eliminar: $e')),
+      );
+    }
+  }
+
+  /// Abre un formulario para modificar los datos del alojamiento.
+  Future<void> _editarAlojamiento(Accommodation a) async {
+    if (a.id == null) return;
+    final nombreCtrl = TextEditingController(text: a.name);
+    final tipoCtrl = TextEditingController(text: a.type);
+    final destinoCtrl = TextEditingController(text: a.location);
+    final precioCtrl =
+        TextEditingController(text: a.pricePerNight.toStringAsFixed(0));
+    final capacidadCtrl =
+        TextEditingController(text: '${a.capacity ?? 0}');
+    final descripcionCtrl = TextEditingController(text: a.description ?? '');
+    var disponible = a.available;
+
+    final guardar = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setStateDialog) => AlertDialog(
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text('Editar alojamiento'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nombreCtrl,
+                  decoration: const InputDecoration(labelText: 'Nombre'),
+                ),
+                TextField(
+                  controller: tipoCtrl,
+                  decoration: const InputDecoration(labelText: 'Tipo'),
+                ),
+                TextField(
+                  controller: destinoCtrl,
+                  decoration: const InputDecoration(labelText: 'Ubicación'),
+                ),
+                TextField(
+                  controller: precioCtrl,
+                  keyboardType: TextInputType.number,
+                  decoration:
+                      const InputDecoration(labelText: 'Precio por noche'),
+                ),
+                TextField(
+                  controller: capacidadCtrl,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: 'Capacidad'),
+                ),
+                TextField(
+                  controller: descripcionCtrl,
+                  maxLines: 3,
+                  decoration:
+                      const InputDecoration(labelText: 'Descripción'),
+                ),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Disponible'),
+                  value: disponible,
+                  activeColor: AppColors.emerald600,
+                  onChanged: (val) =>
+                      setStateDialog(() => disponible = val),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancelar'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.emerald600,
+                  foregroundColor: Colors.white),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Guardar'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (guardar != true) return;
+    try {
+      await AccommodationService().actualizarAlojamiento(
+        a.id!,
+        nombre: nombreCtrl.text.trim(),
+        destino: destinoCtrl.text.trim(),
+        tipo: tipoCtrl.text.trim(),
+        precioPorNoche: double.tryParse(precioCtrl.text.trim()) ??
+            a.pricePerNight,
+        capacidad:
+            int.tryParse(capacidadCtrl.text.trim()) ?? (a.capacity ?? 0),
+        descripcion: descripcionCtrl.text.trim(),
+        available: disponible,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('"${nombreCtrl.text.trim()}" actualizado')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No se pudo actualizar: $e')),
+      );
+    }
   }
 
   Widget _tiposReserva() {

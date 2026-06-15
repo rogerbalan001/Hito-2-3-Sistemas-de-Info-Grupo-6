@@ -15,7 +15,7 @@ class SearchPage extends StatefulWidget {
 class _SearchPageState extends State<SearchPage> {
   final _repository = AccommodationRepository();
   final _searchController = TextEditingController();
-  double _maxBudget = 50.0;
+  double _maxBudget = 200.0;
   String _query = '';
   bool _showFilters = false;
 
@@ -264,7 +264,18 @@ class _AccommodationCard extends StatelessWidget {
                       left: Radius.circular(12)),
                   child: SizedBox(
                     width: 130,
-                    child: EcoImage(url: a.imageUrl, height: double.infinity),
+                    // La imagen va dentro de un Stack con Positioned.fill para
+                    // que NO aporte altura intrínseca: así IntrinsicHeight mide
+                    // solo la columna de texto y la imagen rellena esa altura.
+                    // (Pasar height: double.infinity directo al Image rompía la
+                    // medición y las tarjetas colapsaban a altura cero.)
+                    child: Stack(
+                      children: [
+                        Positioned.fill(
+                          child: EcoImage(url: a.imageUrl, height: 160),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
                 Expanded(

@@ -40,6 +40,35 @@ class AccommodationService {
     });
   }
 
+  /// Elimina un alojamiento por su id de documento. Pensado para uso del
+  /// ADMINISTRADOR (la interfaz solo ofrece esta acción a cuentas admin).
+  Future<void> eliminarAlojamiento(String id) async {
+    await _accommodations.doc(id).delete();
+  }
+
+  /// Actualiza los campos editables de un alojamiento. Pensado para uso del
+  /// ADMINISTRADOR desde la sección "Administración".
+  Future<void> actualizarAlojamiento(
+    String id, {
+    required String nombre,
+    required String destino,
+    required String tipo,
+    required double precioPorNoche,
+    required int capacidad,
+    String descripcion = '',
+    bool available = true,
+  }) async {
+    await _accommodations.doc(id).update({
+      'nombre': nombre,
+      'destino': destino,
+      'tipo': tipo,
+      'precioPorNoche': precioPorNoche,
+      'capacidad': capacidad,
+      'descripcion': descripcion,
+      'available': available,
+    });
+  }
+
   /// Alojamientos publicados por el operador actual, en tiempo real.
   Stream<QuerySnapshot<Map<String, dynamic>>> misAlojamientos() {
     final usuario = AuthService().currentUser;
