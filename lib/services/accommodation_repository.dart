@@ -1,29 +1,39 @@
-import '../data/mock_data.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/accommodation.dart';
 
-/// PATRÓN DE DISEÑO: Repository.
-/// Abstrae el origen de los datos. Hoy devuelve el catálogo simulado del
-/// diseño (MockData); mañana se puede reemplazar por Firebase/Firestore SIN
-/// tocar las pantallas, porque estas solo conocen [all] y [search].
+/// PATRÓN DE DISEÑO: Repository + Singleton.
+/// Abstrae el origen de los datos del CATÁLOGO de alojamientos. Ahora lee en
+/// tiempo real de la colección "accommodations" de Cloud Firestore (las mismas
+/// publicaciones que crean los operadores/administradores). Las pantallas solo
+/// conocen [watchAll] y [search], sin saber que detrás hay Firestore.
 class AccommodationRepository {
   static final AccommodationRepository _instance =
       AccommodationRepository._internal();
   factory AccommodationRepository() => _instance;
   AccommodationRepository._internal();
 
-  List<Accommodation> get _all => MockData.accommodations;
+  final CollectionReference<Map<String, dynamic>> _accommodations =
+      FirebaseFirestore.instance.collection('accommodations');
 
-  /// Catálogo completo (para secciones destacadas).
-  List<Accommodation> all() => List.unmodifiable(_all);
+  /// Catálogo completo en tiempo real. Cada documento se convierte al modelo
+  /// de dominio con [Accommodation.fromMap].
+  Stream<List<Accommodation>> watchAll() {
+    return _accommodations.snapshots().map(
+          (snap) =>
+              snap.docs.map((d) => Accommodation.fromMap(d.data())).toList(),
+        );
+  }
 
-  /// Devuelve los alojamientos que cumplen el texto de destino (nombre o
-  /// ubicación) y el presupuesto máximo.
-  List<Accommodation> search({
+  /// Filtra una lista ya cargada (la que entrega [watchAll]) por texto de
+  /// destino (nombre o ubicación) y presupuesto máximo. Es lógica de interfaz
+  /// pura: no toca la red, por eso recibe la lista de origen.
+  List<Accommodation> search(
+    List<Accommodation> source, {
     String query = '',
     double maxBudget = double.infinity,
   }) {
     final q = query.trim().toLowerCase();
-    return _all.where((a) {
+    return source.where((a) {
       final matchesQuery = q.isEmpty ||
           a.name.toLowerCase().contains(q) ||
           a.location.toLowerCase().contains(q);

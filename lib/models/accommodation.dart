@@ -39,6 +39,7 @@ class Accommodation {
     return Accommodation(
       name: (map['nombre'] ?? '') as String,
       location: (map['destino'] ?? '') as String,
+      region: (map['region'] ?? '') as String,
       type: (map['tipo'] ?? 'Posada') as String,
       pricePerNight: (map['precioPorNoche'] ?? 0).toDouble(),
       rating: (map['rating'] ?? 0).toDouble(),
@@ -46,6 +47,32 @@ class Accommodation {
       imageUrl: map['imageUrl'] as String?,
       description: map['descripcion'] as String?,
       capacity: (map['capacidad'] as num?)?.toInt(),
+      transport: (map['transport'] as List?)?.cast<String>() ?? const [],
+      amenities: (map['amenities'] as List?)?.cast<String>() ?? const [],
+      operatorId: (map['operatorId'] ?? '') as String,
+      available: (map['available'] as bool?) ?? true,
     );
+  }
+
+  /// Serializa el alojamiento al esquema (en español) usado en la colección
+  /// "accommodations" de Firestore. Es la operación inversa de [fromMap], de
+  /// modo que lo que se guarda se puede volver a leer sin pérdida de datos.
+  Map<String, dynamic> toMap() {
+    return {
+      'nombre': name,
+      'destino': location,
+      'region': region,
+      'tipo': type,
+      'precioPorNoche': pricePerNight,
+      'rating': rating,
+      'reviewCount': reviewCount,
+      'imageUrl': imageUrl,
+      'descripcion': description,
+      'capacidad': capacity,
+      'transport': transport,
+      'amenities': amenities,
+      'operatorId': operatorId,
+      'available': available,
+    };
   }
 }

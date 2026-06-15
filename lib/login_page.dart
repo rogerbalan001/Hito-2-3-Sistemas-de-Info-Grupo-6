@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'services/auth_service.dart';
+import 'services/seed_service.dart';
 import 'theme/app_theme.dart';
 
 class LoginPage extends StatefulWidget {
@@ -39,6 +40,9 @@ class _LoginPageState extends State<LoginPage> {
     if (!mounted) return;
 
     if (error == null) {
+      // Siembra el catálogo de ejemplo la primera vez (idempotente y en
+      // segundo plano: no demora la navegación). Requiere sesión activa.
+      SeedService().seedAccommodationsIfEmpty();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Inicio de sesión exitoso')),
       );

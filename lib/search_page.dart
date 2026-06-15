@@ -57,8 +57,21 @@ class _SearchPageState extends State<SearchPage> {
 
   @override
   Widget build(BuildContext context) {
-    final results = _repository.search(query: _query, maxBudget: _maxBudget);
+    return StreamBuilder<List<Accommodation>>(
+      stream: _repository.watchAll(),
+      builder: (context, snapshot) {
+        final cargando =
+            snapshot.connectionState == ConnectionState.waiting;
+        final todos = snapshot.data ?? const <Accommodation>[];
+        final results =
+            _repository.search(todos, query: _query, maxBudget: _maxBudget);
+        return _buildContent(context, results, cargando);
+      },
+    );
+  }
 
+  Widget _buildContent(
+      BuildContext context, List<Accommodation> results, bool cargando) {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 24, 16, 32),
       children: [
@@ -143,12 +156,20 @@ class _SearchPageState extends State<SearchPage> {
         ],
 
         const SizedBox(height: 16),
-        Text('${results.length} resultado(s) encontrado(s)',
+        Text(
+            cargando
+                ? 'Cargando alojamientos...'
+                : '${results.length} resultado(s) encontrado(s)',
             style: const TextStyle(
                 fontSize: 14, color: AppColors.mutedForeground)),
         const SizedBox(height: 12),
 
-        if (results.isEmpty)
+        if (cargando)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 48),
+            child: Center(child: CircularProgressIndicator()),
+          )
+        else if (results.isEmpty)
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 48),
             child: Column(

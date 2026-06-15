@@ -24,7 +24,6 @@ class InicioPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final destacados = AccommodationRepository().all().take(3).toList();
     final paquetes = MockData.packages.take(3).toList();
 
     return ListView(
@@ -177,13 +176,26 @@ class InicioPage extends StatelessWidget {
         ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Column(
-            children: destacados
-                .map((a) => _FeaturedCard(
-                      accommodation: a,
-                      onTap: () => _abrirDetalle(context, a),
-                    ))
-                .toList(),
+          child: StreamBuilder<List<Accommodation>>(
+            stream: AccommodationRepository().watchAll(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 24),
+                  child: Center(child: CircularProgressIndicator()),
+                );
+              }
+              final destacados =
+                  (snapshot.data ?? const <Accommodation>[]).take(3).toList();
+              return Column(
+                children: destacados
+                    .map((a) => _FeaturedCard(
+                          accommodation: a,
+                          onTap: () => _abrirDetalle(context, a),
+                        ))
+                    .toList(),
+              );
+            },
           ),
         ),
 
