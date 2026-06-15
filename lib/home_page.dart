@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'services/auth_service.dart';
 import 'theme/app_theme.dart'; // Ajusta la ruta si es necesario
 import 'add_accommodation_page.dart';
 import 'my_reservations_page.dart';
@@ -236,30 +237,33 @@ class _InicioView extends StatelessWidget {
                               ),
                             ),
                           ),
-                          const SizedBox(width: 16),
-                          SizedBox(
-                            height: 48,
-                            child: OutlinedButton.icon(
-                              onPressed: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => const AddAccommodationPage(),
+                          // Botón "Registrar mi Servicio" solo visible para administradores.
+                          if (AuthService().isCurrentUserAdmin) ...[
+                            const SizedBox(width: 16),
+                            SizedBox(
+                              height: 48,
+                              child: OutlinedButton.icon(
+                                onPressed: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => const AddAccommodationPage(),
+                                    ),
+                                  );
+                                },
+                                icon: const Icon(Icons.place_outlined, size: 20),
+                                label: const Text('Registrar mi Servicio'),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: Colors.white,
+                                  side: const BorderSide(color: Colors.white, width: 1.5),
+                                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
                                   ),
-                                );
-                              },
-                              icon: const Icon(Icons.place_outlined, size: 20),
-                              label: const Text('Registrar mi Servicio'),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: Colors.white,
-                                side: const BorderSide(color: Colors.white, width: 1.5),
-                                padding: const EdgeInsets.symmetric(horizontal: 24),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
                                 ),
                               ),
                             ),
-                          ),
+                          ],
                         ],
                       ),
                     ],

@@ -241,35 +241,37 @@ class _ProfilePageState extends State<ProfilePage> {
                       fontSize: 12, color: AppColors.mutedForeground),
                 ),
 
-                // Acceso al módulo de publicación (operadores).
-                const SizedBox(height: 24),
-                const Divider(),
-                const SizedBox(height: 8),
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: AppColors.emerald50,
-                      borderRadius: BorderRadius.circular(12),
+                // Acceso al módulo de publicación (operadores/admin).
+                if (_esAdmin) ...[
+                  const SizedBox(height: 24),
+                  const Divider(),
+                  const SizedBox(height: 8),
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: AppColors.emerald50,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(Icons.add_business_outlined,
+                          color: AppColors.emerald700),
                     ),
-                    child: const Icon(Icons.add_business_outlined,
-                        color: AppColors.emerald700),
+                    title: const Text('Publicar un alojamiento',
+                        style: TextStyle(fontWeight: FontWeight.w600)),
+                    subtitle: const Text(
+                      'Registra tu posada, camping, cabaña u otro alojamiento.',
+                      style: TextStyle(fontSize: 12),
+                    ),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => const AddAccommodationPage()),
+                    ),
                   ),
-                  title: const Text('Publicar un alojamiento',
-                      style: TextStyle(fontWeight: FontWeight.w600)),
-                  subtitle: const Text(
-                    'Para operadores: registra tu posada, camping o cabaña.',
-                    style: TextStyle(fontSize: 12),
-                  ),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => const AddAccommodationPage()),
-                  ),
-                ),
+                ],
               ],
             ),
     );
