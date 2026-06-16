@@ -9,7 +9,7 @@ Roger Balan · Juan Blanco · Iker Solar · Sebastián Velásquez · Alejandro C
 Para probar el inicio de sesión sin registrarse:
 - **Correo:** `demo@unimet.edu.ve`
 - **Contraseña:** `123456`
-- 
+  
 ## Cuenta de administrador
 Para probar el inicio de sesión con admin:
 - **Correo:** `admin@unimet.edu.ve`
