@@ -379,7 +379,7 @@ class MockData {
 
   static const List<StatusCount> statusDistribution = [
     StatusCount('Solicitado', 35, 0xFFF59E0B),
-    StatusCount('Aceptado', 28, 0xFF3B82F6),
+    StatusCount('Aprobado', 28, 0xFF3B82F6),
     StatusCount('Pagado', 52, 0xFF10B981),
     StatusCount('Disfrutado', 120, 0xFF8B5CF6),
     StatusCount('Cancelado', 12, 0xFFEF4444),

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'data/mock_data.dart';
 import 'models/accommodation.dart';
 import 'services/accommodation_repository.dart';
 import 'services/accommodation_service.dart';
+import 'services/reservation_service.dart';
 import 'theme/app_theme.dart';
 
 /// Pantalla de Administración (RF de mantenimiento).
@@ -22,7 +24,7 @@ class _AdminPageState extends State<AdminPage> {
 
   static const _tabs = [
     'Hospedajes',
-    'Tipos de Reserva',
+    'Reservas',
     'Paquetes Turísticos',
     'Transporte',
     'Regiones',
@@ -45,51 +47,57 @@ class _AdminPageState extends State<AdminPage> {
       stream: AccommodationRepository().watchAll(),
       builder: (context, snapshot) {
         final hospedajes = snapshot.data ?? const <Accommodation>[];
-        return Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 1100),
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(16, 24, 16, 32),
-          children: [
-            const Text(
-              'Administración',
-              style: TextStyle(fontSize: 26, fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 4),
-            const Text(
-              'Tablas de mantenimiento para la gestión del sistema',
-              style: TextStyle(color: AppColors.mutedForeground),
-            ),
-            const SizedBox(height: 20),
+        return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+          stream: ReservationService().todasLasReservas(),
+          builder: (context, snapshotRes) {
+            final reservas = snapshotRes.data?.docs ?? [];
+            return Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 1100),
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(16, 24, 16, 32),
+                  children: [
+                    const Text(
+                      'Administración',
+                      style: TextStyle(fontSize: 26, fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Tablas de mantenimiento para la gestión del sistema',
+                      style: TextStyle(color: AppColors.mutedForeground),
+                    ),
+                    const SizedBox(height: 20),
 
-            // Pestañas tipo chip.
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: [
-                for (var i = 0; i < _tabs.length; i++)
-                  _TabChip(
-                    label: _tabs[i],
-                    active: _tab == i,
-                    badge: i == 5 && _pendientes > 0 ? _pendientes : null,
-                    onTap: () => setState(() => _tab = i),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 20),
+                    // Pestañas tipo chip.
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      children: [
+                        for (var i = 0; i < _tabs.length; i++)
+                          _TabChip(
+                            label: _tabs[i],
+                            active: _tab == i,
+                            badge: i == 5 && _pendientes > 0 ? _pendientes : null,
+                            onTap: () => setState(() => _tab = i),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
 
-            // Tarjeta con la tabla de la pestaña activa.
-            _card(hospedajes),
-          ],
-            ),
-          ),
+                    // Tarjeta con la tabla de la pestaña activa.
+                    _card(hospedajes, reservas),
+                  ],
+                ),
+              ),
+            );
+          },
         );
       },
     );
   }
 
-  Widget _card(List<Accommodation> hospedajes) {
-    final info = _currentTable(hospedajes);
+  Widget _card(List<Accommodation> hospedajes, List<QueryDocumentSnapshot<Map<String, dynamic>>> reservas) {
+    final info = _currentTable(hospedajes, reservas);
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -151,7 +159,7 @@ class _AdminPageState extends State<AdminPage> {
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
             child: Text(
-              '${_rowCount(hospedajes)} registro(s)',
+              '${_rowCount(hospedajes, reservas)} registro(s)',
               style: const TextStyle(
                   fontSize: 13, color: AppColors.mutedForeground),
             ),
@@ -161,12 +169,12 @@ class _AdminPageState extends State<AdminPage> {
     );
   }
 
-  int _rowCount(List<Accommodation> hospedajes) {
+  int _rowCount(List<Accommodation> hospedajes, List<QueryDocumentSnapshot<Map<String, dynamic>>> reservas) {
     switch (_tab) {
       case 0:
         return hospedajes.length;
       case 1:
-        return MockData.statusDistribution.length;
+        return reservas.length;
       case 2:
         return MockData.packages.length;
       case 3:
@@ -178,12 +186,12 @@ class _AdminPageState extends State<AdminPage> {
     }
   }
 
-  Widget _currentTable(List<Accommodation> hospedajes) {
+  Widget _currentTable(List<Accommodation> hospedajes, List<QueryDocumentSnapshot<Map<String, dynamic>>> reservas) {
     switch (_tab) {
       case 0:
         return _hospedajes(hospedajes);
       case 1:
-        return _tiposReserva();
+        return _reservasTab(reservas);
       case 2:
         return _paquetes();
       case 3:
@@ -427,34 +435,90 @@ class _AdminPageState extends State<AdminPage> {
     }
   }
 
-  Widget _tiposReserva() {
+  Widget _reservasTab(List<QueryDocumentSnapshot<Map<String, dynamic>>> reservas) {
+    if (reservas.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 32),
+        child: Center(
+          child: Text('No hay reservas registradas',
+              style: TextStyle(color: AppColors.mutedForeground)),
+        ),
+      );
+    }
     return _table(
       const [
+        DataColumn(label: Text('Usuario')),
+        DataColumn(label: Text('Destino')),
+        DataColumn(label: Text('Precio')),
         DataColumn(label: Text('Estado')),
-        DataColumn(label: Text('Reservas')),
         DataColumn(label: Text('Acciones')),
       ],
-      MockData.statusDistribution.map((s) {
+      reservas.map((doc) {
+        final data = doc.data();
+        final id = doc.id;
+        final email = data['usuarioEmail'] ?? 'Sin correo';
+        final destino = data['ubicacion'] ?? data['alojamiento'] ?? 'Desconocido';
+        final precio = data['precioPorNoche'] ?? 0;
+        final estado = data['estado'] ?? 'Solicitado';
+
         return DataRow(cells: [
-          DataCell(Row(
-            children: [
-              Container(
-                width: 10,
-                height: 10,
-                decoration: BoxDecoration(
-                  color: Color(s.colorValue),
-                  shape: BoxShape.circle,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Text(s.status),
-            ],
-          )),
-          DataCell(Text('${s.count}')),
-          ..._accionesCells(),
+          DataCell(Text(email.toString())),
+          DataCell(Text(destino.toString())),
+          DataCell(Text('\$$precio')),
+          DataCell(_estadoReservaBadge(estado.toString())),
+          DataCell(
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert, size: 18, color: AppColors.mutedForeground),
+              tooltip: 'Cambiar estado',
+              onSelected: (nuevoEstado) async {
+                try {
+                  await ReservationService().actualizarEstado(id, nuevoEstado);
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Estado actualizado a $nuevoEstado')),
+                  );
+                } catch (e) {
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Error al actualizar: $e')),
+                  );
+                }
+              },
+              itemBuilder: (context) => const [
+                PopupMenuItem(value: 'Solicitado', child: Text('Marcar como Solicitado')),
+                PopupMenuItem(value: 'Aprobado', child: Text('Aprobar Reserva')),
+                PopupMenuItem(value: 'Pagado', child: Text('Marcar como Pagado')),
+                PopupMenuItem(value: 'Disfrutado', child: Text('Marcar como Disfrutado')),
+              ],
+            ),
+          ),
         ]);
       }).toList(),
     );
+  }
+
+  Widget _estadoReservaBadge(String estado) {
+    Color bg;
+    Color fg;
+    switch (estado) {
+      case 'Solicitado':
+        bg = Colors.orange.shade50;
+        fg = AppColors.amber500;
+        break;
+      case 'Aprobado':
+        bg = Colors.blue.shade50;
+        fg = AppColors.blue600;
+        break;
+      case 'Pagado':
+      case 'Disfrutado':
+        bg = AppColors.emerald50;
+        fg = AppColors.emerald700;
+        break;
+      default:
+        bg = AppColors.inputBackground;
+        fg = AppColors.mutedForeground;
+    }
+    return _miniBadge(estado, bg, fg);
   }
 
   Widget _paquetes() {

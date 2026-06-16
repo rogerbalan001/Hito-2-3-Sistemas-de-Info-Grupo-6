@@ -29,7 +29,7 @@ class ReservationService {
       'alojamiento': alojamiento,
       'ubicacion': ubicacion,
       'precioPorNoche': precioPorNoche,
-      // Ciclo de vida: Solicitado -> Aceptado -> Pagado -> Disfrutado.
+      // Ciclo de vida: Solicitado -> Aprobado -> Pagado -> Disfrutado.
       'estado': 'Solicitado',
       'fecha': FieldValue.serverTimestamp(),
     });
@@ -39,5 +39,18 @@ class ReservationService {
   Stream<QuerySnapshot<Map<String, dynamic>>> misReservas() {
     final usuario = AuthService().currentUser;
     return _reservas.where('usuarioId', isEqualTo: usuario?.uid).snapshots();
+  }
+
+  /// Obtiene todas las reservas (para la vista de Administrador).
+  /// Permite listar las solicitudes activas de los clientes.
+  Stream<QuerySnapshot<Map<String, dynamic>>> todasLasReservas() {
+    return _reservas.orderBy('fecha', descending: true).snapshots();
+  }
+
+  /// Actualiza el estado de una reserva (por ejemplo: Aprobado, Disfrutado).
+  Future<void> actualizarEstado(String id, String nuevoEstado) async {
+    await _reservas.doc(id).update({
+      'estado': nuevoEstado,
+    });
   }
 }
