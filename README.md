@@ -9,8 +9,13 @@ Roger Balan · Juan Blanco · Iker Solar · Sebastián Velásquez · Alejandro C
 Para probar el inicio de sesión sin registrarse:
 - **Correo:** `demo@unimet.edu.ve`
 - **Contraseña:** `123456`
+- 
+## Cuenta de administrador
+Para probar el inicio de sesión con admin:
+- **Correo:** `admin@unimet.edu.ve`
+- **Contraseña:** `admin123`
 
-(También puedes crear una cuenta nueva; el correo debe terminar en `@unimet.edu.ve`.)
+(También puedes crear una cuenta nueva; el correo debe terminar en `@unimet.edu.ve` o `@correo.unimet.edu.ve`.)
 
 ## Funcionalidades implementadas
 - **Login** con validación de credenciales.
