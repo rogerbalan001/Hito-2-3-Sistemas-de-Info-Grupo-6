@@ -40,7 +40,11 @@ class _SearchPageState extends State<SearchPage> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => PaymentPage(accommodation: a),
+        builder: (_) => PaymentPage(
+          nombre: a.name,
+          ubicacion: a.location,
+          monto: a.pricePerNight,
+        ),
       ),
     );
   }

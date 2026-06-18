@@ -6,7 +6,6 @@ import 'dart:ui_web' as ui_web;
 import 'package:flutter/material.dart';
 import 'package:web/web.dart' as web;
 
-import 'models/accommodation.dart';
 import 'services/paypal_service.dart';
 import 'services/reservation_service.dart';
 import 'theme/app_theme.dart';
@@ -19,12 +18,27 @@ import 'theme/app_theme.dart';
 /// pagos de prueba) y, solo si el pago se confirma, la reserva se crea
 /// directamente en estado "Pagado": ya no existe el paso de aprobación.
 ///
+/// Es genérica (recibe nombre/ubicación/monto, no un [Accommodation]) para
+/// poder reutilizarse tanto al reservar un alojamiento como un paquete
+/// turístico.
+///
 /// NOTA TÉCNICA: la interoperabilidad con el SDK de JavaScript de PayPal usa
 /// dart:js_interop + dart:js_interop_unsafe (la API moderna y soportada),
 /// en vez de dart:js/dart:html (obsoletas).
 class PaymentPage extends StatefulWidget {
-  final Accommodation accommodation;
-  const PaymentPage({Key? key, required this.accommodation}) : super(key: key);
+  /// Nombre del alojamiento o paquete que se está pagando.
+  final String nombre;
+  /// Ubicación/destino a mostrar en el resumen.
+  final String ubicacion;
+  /// Monto total a cobrar (en USD).
+  final double monto;
+
+  const PaymentPage({
+    Key? key,
+    required this.nombre,
+    required this.ubicacion,
+    required this.monto,
+  }) : super(key: key);
 
   @override
   State<PaymentPage> createState() => _PaymentPageState();
@@ -64,13 +78,36 @@ class _PaymentPageState extends State<PaymentPage> {
       await PaypalService.ensureLoaded();
       if (!mounted) return;
       setState(() => _sdkListo = true);
-      // El <div> recién se inserta en el DOM real después de este frame;
-      // hay que esperar a que termine para poder montar los botones en él.
-      WidgetsBinding.instance.addPostFrameCallback((_) => _montarBotones());
+      // El <div> recién se inserta en el DOM real después de este frame, y
+      // en Flutter Web esa inserción puede tardar más de un frame. Por eso,
+      // en vez de confiar en un solo postFrameCallback, se espera de forma
+      // activa hasta confirmar que el elemento ya existe en el documento.
+      WidgetsBinding.instance
+          .addPostFrameCallback((_) => _esperarElementoYMontar());
     } catch (e) {
       if (!mounted) return;
       setState(() => _error = 'No se pudo cargar PayPal: $e');
     }
+  }
+
+  /// Espera (con reintentos cortos) a que el <div> del botón exista de
+  /// verdad en el documento antes de pedirle a PayPal que renderice ahí.
+  /// Sin esto, PayPal puede fallar con "element does not exist" si se
+  /// adelanta a la inserción real del nodo en el DOM.
+  Future<void> _esperarElementoYMontar() async {
+    const intentosMax = 50; // ~5 segundos en total
+    for (var intento = 0; intento < intentosMax; intento++) {
+      if (!mounted) return;
+      if (web.document.getElementById(_viewId) != null) {
+        _montarBotones();
+        return;
+      }
+      await Future.delayed(const Duration(milliseconds: 100));
+    }
+    if (!mounted) return;
+    setState(() => _error =
+        'No se pudo preparar el botón de pago (tiempo de espera agotado). '
+        'Intenta de nuevo.');
   }
 
   /// Convierte un Map de Dart en un objeto JS real pasando por JSON. Evita
@@ -112,14 +149,13 @@ class _PaymentPageState extends State<PaymentPage> {
   /// por ella sola.
   JSAny? _crearOrden(JSAny? data, JSAny? actions) {
     final order = (actions as JSObject).getProperty<JSObject>('order'.toJS);
-    final monto = widget.accommodation.pricePerNight;
     final payload = _aObjetoJs({
       'purchase_units': [
         {
-          'description': 'EcoSpot - ${widget.accommodation.name}',
+          'description': 'EcoSpot - ${widget.nombre}',
           'amount': {
             'currency_code': 'USD',
-            'value': monto.toStringAsFixed(2),
+            'value': widget.monto.toStringAsFixed(2),
           },
         },
       ],
@@ -170,9 +206,9 @@ class _PaymentPageState extends State<PaymentPage> {
       // RF04 actualizado: la reserva nace directamente en "Pagado", sin
       // pasar por una aprobación manual previa.
       await ReservationService().crearReserva(
-        alojamiento: widget.accommodation.name,
-        ubicacion: widget.accommodation.location,
-        precioPorNoche: widget.accommodation.pricePerNight,
+        alojamiento: widget.nombre,
+        ubicacion: widget.ubicacion,
+        precioPorNoche: widget.monto,
         estado: 'Pagado',
         metodoPago: 'PayPal (Sandbox)',
         referenciaPago: orderId,
@@ -204,7 +240,7 @@ class _PaymentPageState extends State<PaymentPage> {
           ],
         ),
         content: Text(
-          'Tu reserva de "${widget.accommodation.name}" quedó confirmada '
+          'Tu reserva de "${widget.nombre}" quedó confirmada '
           'y pagada.\n'
           '${estadoPaypal != null ? 'Estado de PayPal: $estadoPaypal\n' : ''}'
           '${orderId != null ? 'N.º de orden: $orderId' : ''}',
@@ -231,15 +267,13 @@ class _PaymentPageState extends State<PaymentPage> {
 
   @override
   Widget build(BuildContext context) {
-    final a = widget.accommodation;
-
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(title: const Text('Pago de la reserva')),
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          // Resumen del alojamiento y el monto a pagar.
+          // Resumen del alojamiento/paquete y el monto a pagar.
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -250,7 +284,7 @@ class _PaymentPageState extends State<PaymentPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(a.name,
+                Text(widget.nombre,
                     style: const TextStyle(
                         fontSize: 18, fontWeight: FontWeight.w700)),
                 const SizedBox(height: 4),
@@ -259,7 +293,7 @@ class _PaymentPageState extends State<PaymentPage> {
                     const Icon(Icons.place_outlined,
                         size: 16, color: AppColors.mutedForeground),
                     const SizedBox(width: 4),
-                    Text(a.location,
+                    Text(widget.ubicacion,
                         style:
                             const TextStyle(color: AppColors.mutedForeground)),
                   ],
@@ -271,7 +305,7 @@ class _PaymentPageState extends State<PaymentPage> {
                     const Text('Total a pagar',
                         style: TextStyle(fontWeight: FontWeight.w600)),
                     Text(
-                      '\$${a.pricePerNight.toStringAsFixed(2)} USD',
+                      '\$${widget.monto.toStringAsFixed(2)} USD',
                       style: const TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w700,

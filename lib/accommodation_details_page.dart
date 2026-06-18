@@ -54,7 +54,11 @@ class AccommodationDetailsPage extends StatelessWidget {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => PaymentPage(accommodation: accommodation),
+        builder: (_) => PaymentPage(
+          nombre: accommodation.name,
+          ubicacion: accommodation.location,
+          monto: accommodation.pricePerNight,
+        ),
       ),
     );
   }

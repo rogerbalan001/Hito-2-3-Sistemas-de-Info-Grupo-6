@@ -31,6 +31,12 @@ class AuthService {
 
   bool get isLoggedIn => _auth.currentUser != null;
 
+  /// Emite el usuario actual cada vez que cambia el estado de sesión
+  /// (login, logout, o la restauración de una sesión persistida al abrir la
+  /// app). Lo usa AuthGate para decidir si abrir directo en Inicio o en
+  /// Login, en vez de forzar siempre el login al cargar la página.
+  Stream<User?> get authStateChanges => _auth.authStateChanges();
+
   /// Indica si el correo dado pertenece a un administrador autorizado.
   /// La comparación es insensible a mayúsculas/minúsculas y a espacios.
   bool isAdminEmail(String? email) {

@@ -1,10 +1,24 @@
 import 'package:flutter/material.dart';
 import 'data/mock_data.dart';
+import 'payment_page.dart';
 import 'theme/app_theme.dart';
 
 /// Pantalla de Paquetes Turísticos (cuadrícula responsiva de tarjetas).
 class PackagesPage extends StatelessWidget {
   const PackagesPage({Key? key}) : super(key: key);
+
+  void _reservar(BuildContext context, TouristPackage p) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PaymentPage(
+          nombre: p.name,
+          ubicacion: p.destination,
+          monto: p.price,
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -30,7 +44,10 @@ class PackagesPage extends StatelessWidget {
               children: MockData.packages
                   .map((p) => SizedBox(
                         width: cardW,
-                        child: PackageCard(package: p),
+                        child: PackageCard(
+                          package: p,
+                          onReserve: () => _reservar(context, p),
+                        ),
                       ))
                   .toList(),
             );
@@ -41,10 +58,12 @@ class PackagesPage extends StatelessWidget {
   }
 }
 
-/// Tarjeta de paquete: foto, nombre, destino·duración, incluye, precio, rating.
+/// Tarjeta de paquete: foto, nombre, destino·duración, incluye, precio,
+/// rating y un botón "Reservar" que abre la pasarela de pago.
 class PackageCard extends StatelessWidget {
   final TouristPackage package;
-  const PackageCard({super.key, required this.package});
+  final VoidCallback? onReserve;
+  const PackageCard({super.key, required this.package, this.onReserve});
 
   @override
   Widget build(BuildContext context) {
@@ -105,6 +124,7 @@ class PackageCard extends StatelessWidget {
                 const SizedBox(height: 12),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     Text('\$${p.price}',
                         style: const TextStyle(
@@ -114,6 +134,18 @@ class PackageCard extends StatelessWidget {
                     StarRating(rating: p.rating),
                   ],
                 ),
+                if (onReserve != null) ...[
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 40,
+                    child: ElevatedButton.icon(
+                      onPressed: onReserve,
+                      icon: const Icon(Icons.event_available, size: 18),
+                      label: const Text('Reservar'),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),

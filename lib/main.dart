@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
+import 'auth_gate.dart';
 import 'login_page.dart';
 import 'register_page.dart';
 import 'main_shell.dart';
@@ -26,11 +27,14 @@ class EcoSpotApp extends StatelessWidget {
       title: 'EcoSpot',
       debugShowCheckedModeBanner: false,
       theme: buildEcoSpotTheme(),
-      initialRoute: '/login',
+      // AuthGate decide al abrir la app: si ya hay sesión activa entra
+      // directo a Inicio (MainShell); si no, muestra el login. Las rutas
+      // con nombre siguen disponibles para las navegaciones explícitas que
+      // ya usa el resto de la app (después de iniciar/cerrar sesión).
+      home: const AuthGate(),
       routes: {
         '/login': (context) => const LoginPage(),
         '/register': (context) => const RegisterPage(),
-        // Tras iniciar sesión se entra al shell con la barra superior del Figma.
         '/home': (context) => const MainShell(),
       },
     );
