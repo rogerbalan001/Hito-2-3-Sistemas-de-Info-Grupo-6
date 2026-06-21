@@ -13,20 +13,22 @@ import 'theme/app_theme.dart';
 
 /// Pasarela de pago (Hito 3 - Flujo de pago con PayPal Sandbox).
 ///
-/// Reemplaza el flujo anterior, en el que la reserva se creaba directo en
-/// estado "Solicitado" y quedaba a la espera de que alguien la "aprobara".
-/// Ahora el viajero paga de una vez con el botón de PayPal (modo sandbox,
-/// pagos de prueba) y, solo si el pago se confirma, la reserva se crea
-/// directamente en estado "Pagado": ya no existe el paso de aprobación.
+/// Se llega aquí desde "Mis Reservas", con el botón "Pagar" que solo aparece
+/// cuando el administrador aprobó la solicitud. La reserva YA existe (en estado
+/// "Aprobado"); al confirmarse el pago con PayPal se actualiza a "Pagado"
+/// mediante [reservaId]. Por compatibilidad, si no se pasa [reservaId] se crea
+/// una reserva nueva ya pagada.
 ///
 /// Es genérica (recibe nombre/ubicación/monto, no un [Accommodation]) para
-/// poder reutilizarse tanto al reservar un alojamiento como un paquete
-/// turístico.
+/// poder reutilizarse tanto con alojamientos como con paquetes turísticos.
 ///
 /// NOTA TÉCNICA: la interoperabilidad con el SDK de JavaScript de PayPal usa
 /// dart:js_interop + dart:js_interop_unsafe (la API moderna y soportada),
 /// en vez de dart:js/dart:html (obsoletas).
 class PaymentPage extends StatefulWidget {
+  /// Id de la reserva (ya aprobada) que se está pagando. Si es null, se crea
+  /// una reserva nueva en estado "Pagado" (flujo heredado).
+  final String? reservaId;
   /// Nombre del alojamiento o paquete que se está pagando.
   final String nombre;
   /// Ubicación/destino a mostrar en el resumen.
@@ -36,6 +38,7 @@ class PaymentPage extends StatefulWidget {
 
   const PaymentPage({
     Key? key,
+    this.reservaId,
     required this.nombre,
     required this.ubicacion,
     required this.monto,
@@ -239,16 +242,25 @@ class _PaymentPageState extends State<PaymentPage> {
     }
 
     try {
-      // RF04 actualizado: la reserva nace directamente en "Pagado", sin
-      // pasar por una aprobación manual previa.
-      await ReservationService().crearReserva(
-        alojamiento: widget.nombre,
-        ubicacion: widget.ubicacion,
-        precioPorNoche: widget.monto,
-        estado: 'Pagado',
-        metodoPago: 'PayPal (Sandbox)',
-        referenciaPago: orderId,
-      );
+      if (widget.reservaId != null) {
+        // Flujo normal: la reserva ya existe (aprobada por el admin); solo se
+        // marca como pagada.
+        await ReservationService().registrarPago(
+          widget.reservaId!,
+          metodoPago: 'PayPal (Sandbox)',
+          referenciaPago: orderId,
+        );
+      } else {
+        // Flujo heredado: sin reserva previa, se crea ya pagada.
+        await ReservationService().crearReserva(
+          alojamiento: widget.nombre,
+          ubicacion: widget.ubicacion,
+          precioPorNoche: widget.monto,
+          estado: 'Pagado',
+          metodoPago: 'PayPal (Sandbox)',
+          referenciaPago: orderId,
+        );
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() {

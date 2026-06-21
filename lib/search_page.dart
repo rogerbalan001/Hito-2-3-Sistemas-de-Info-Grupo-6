@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'models/accommodation.dart';
 import 'services/accommodation_repository.dart';
+import 'services/reservation_service.dart';
 import 'accommodation_details_page.dart';
-import 'payment_page.dart';
 import 'theme/app_theme.dart';
 
 /// Pantalla de Búsqueda (contenido plano; la barra superior la pone el shell).
@@ -34,19 +34,28 @@ class _SearchPageState extends State<SearchPage> {
     );
   }
 
-  /// Ya no crea la reserva directamente: abre la pasarela de pago. La reserva
-  /// solo se crea (en estado "Pagado") si el pago con PayPal se confirma.
-  void _reservar(Accommodation a) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => PaymentPage(
-          nombre: a.name,
-          ubicacion: a.location,
-          monto: a.pricePerNight,
+  /// Crea la reserva en estado "Solicitado". El pago se habilita después,
+  /// cuando el administrador apruebe la solicitud (desde "Mis Reservas").
+  Future<void> _reservar(Accommodation a) async {
+    try {
+      await ReservationService().crearReserva(
+        alojamiento: a.name,
+        ubicacion: a.location,
+        precioPorNoche: a.pricePerNight,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Solicitud enviada. Cuando el administrador la '
+              'apruebe podrás pagarla desde "Mis Reservas".'),
         ),
-      ),
-    );
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No se pudo enviar la solicitud: $e')),
+      );
+    }
   }
 
   @override

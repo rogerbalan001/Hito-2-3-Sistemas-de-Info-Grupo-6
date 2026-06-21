@@ -1,23 +1,34 @@
 import 'package:flutter/material.dart';
 import 'data/mock_data.dart';
-import 'payment_page.dart';
+import 'services/reservation_service.dart';
 import 'theme/app_theme.dart';
 
 /// Pantalla de Paquetes Turísticos (cuadrícula responsiva de tarjetas).
 class PackagesPage extends StatelessWidget {
   const PackagesPage({Key? key}) : super(key: key);
 
-  void _reservar(BuildContext context, TouristPackage p) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => PaymentPage(
-          nombre: p.name,
-          ubicacion: p.destination,
-          monto: p.price,
+  /// Crea la reserva del paquete en estado "Solicitado". El pago se habilita
+  /// después, cuando el administrador apruebe la solicitud.
+  Future<void> _reservar(BuildContext context, TouristPackage p) async {
+    try {
+      await ReservationService().crearReserva(
+        alojamiento: p.name,
+        ubicacion: p.destination,
+        precioPorNoche: p.price,
+      );
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Solicitud enviada. Cuando el administrador la '
+              'apruebe podrás pagarla desde "Mis Reservas".'),
         ),
-      ),
-    );
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No se pudo enviar la solicitud: $e')),
+      );
+    }
   }
 
   @override

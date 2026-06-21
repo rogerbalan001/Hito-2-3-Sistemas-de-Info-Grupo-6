@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'payment_page.dart';
 import 'services/reservation_service.dart';
 import 'theme/app_theme.dart';
 
@@ -13,6 +14,7 @@ class MyReservationsPage extends StatelessWidget {
   /// Color asociado a cada estado del ciclo de vida de la reserva.
   Color _colorEstado(String estado) {
     switch (estado) {
+      case 'Aprobado':
       case 'Aceptado':
         return AppColors.blue600;
       case 'Pagado':
@@ -74,6 +76,7 @@ class MyReservationsPage extends StatelessWidget {
               final estado = (data['estado'] ?? 'Solicitado') as String;
               final precio = (data['precioPorNoche'] ?? 0).toDouble();
               return _ReservaCard(
+                reservaId: docs[i].id,
                 alojamiento: (data['alojamiento'] ?? '') as String,
                 ubicacion: (data['ubicacion'] ?? '') as String,
                 precioPorNoche: precio,
@@ -91,6 +94,7 @@ class MyReservationsPage extends StatelessWidget {
 }
 
 class _ReservaCard extends StatelessWidget {
+  final String reservaId;
   final String alojamiento;
   final String ubicacion;
   final double precioPorNoche;
@@ -98,12 +102,30 @@ class _ReservaCard extends StatelessWidget {
   final Color color;
 
   const _ReservaCard({
+    required this.reservaId,
     required this.alojamiento,
     required this.ubicacion,
     required this.precioPorNoche,
     required this.estado,
     required this.color,
   });
+
+  /// El pago se habilita solo cuando el administrador aprobó la solicitud.
+  bool get _puedePagar => estado == 'Aprobado' || estado == 'Aceptado';
+
+  void _irAPagar(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PaymentPage(
+          reservaId: reservaId,
+          nombre: alojamiento,
+          ubicacion: ubicacion,
+          monto: precioPorNoche,
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -180,13 +202,37 @@ class _ReservaCard extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 6),
-                Text(
-                  '\$${precioPorNoche.round()}/noche',
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.emerald700,
-                  ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      '\$${precioPorNoche.round()}/noche',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.emerald700,
+                      ),
+                    ),
+                    if (_puedePagar)
+                      ElevatedButton.icon(
+                        onPressed: () => _irAPagar(context),
+                        icon: const Icon(Icons.payment, size: 16),
+                        label: const Text('Pagar'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.emerald600,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 8),
+                          minimumSize: const Size(0, 36),
+                          textStyle: const TextStyle(
+                              fontSize: 12, fontWeight: FontWeight.w600),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ],
             ),
@@ -228,15 +274,16 @@ class _EstadoVacio extends StatelessWidget {
 }
 
 /// Encabezado de la pestaña Reservas: título + flujo de estados.
-/// Desde la integración de pagos, la reserva nace directo en "Pagado" (el
-/// pago con PayPal se confirma al momento de reservar, sin aprobación
-/// previa); "Disfrutado" se marca después de la estadía.
+/// La reserva nace "Solicitado", el administrador la pasa a "Aprobado", el
+/// viajero la paga ("Pagado") y tras la estadía queda "Disfrutado".
 class _ReservasHeader extends StatelessWidget {
   const _ReservasHeader();
 
   @override
   Widget build(BuildContext context) {
     const pasos = [
+      ['Solicitado', AppColors.amber500],
+      ['Aprobado', AppColors.blue600],
       ['Pagado', AppColors.emerald600],
       ['Disfrutado', AppColors.emerald800],
     ];
@@ -252,7 +299,7 @@ class _ReservasHeader extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           const Text(
-            'Tu historial de reservas pagadas',
+            'Sigue el estado de tus solicitudes y paga las aprobadas',
             style: TextStyle(color: AppColors.mutedForeground),
           ),
           const SizedBox(height: 16),

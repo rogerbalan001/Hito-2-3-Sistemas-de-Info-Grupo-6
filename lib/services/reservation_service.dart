@@ -18,11 +18,9 @@ class ReservationService {
   /// Crea una nueva reserva, asociada al usuario que tiene la sesión iniciada.
   /// (Cumple RF04: flujo de reservas.)
   ///
-  /// Desde la integración de pagos, ya no hay un paso de aprobación manual:
-  /// el pago se confirma en PaymentPage (PayPal Sandbox) y SOLO si se aprueba
-  /// se llama a este método, ya con `estado: 'Pagado'`. El valor por defecto
-  /// 'Solicitado' se conserva por compatibilidad, pero hoy ningún punto de la
-  /// app lo usa sin pasar explícitamente el estado.
+  /// Flujo: la reserva nace en estado "Solicitado". El administrador la revisa
+  /// y la pasa a "Aprobado"; solo entonces el viajero puede pagarla (PayPal
+  /// Sandbox) desde "Mis Reservas", lo que la deja en "Pagado".
   Future<void> crearReserva({
     required String alojamiento,
     required String ubicacion,
@@ -38,11 +36,28 @@ class ReservationService {
       'alojamiento': alojamiento,
       'ubicacion': ubicacion,
       'precioPorNoche': precioPorNoche,
-      // Ciclo de vida actual: Pagado -> Disfrutado (o Cancelado).
+      // Ciclo de vida: Solicitado -> Aprobado -> Pagado -> Disfrutado
+      // (o Cancelado).
       'estado': estado,
       'metodoPago': metodoPago,
       'referenciaPago': referenciaPago,
       'fecha': FieldValue.serverTimestamp(),
+    });
+  }
+
+  /// Marca como "Pagado" una reserva YA existente (la que el admin aprobó),
+  /// guardando los datos del pago. Se llama desde PaymentPage cuando PayPal
+  /// confirma la captura.
+  Future<void> registrarPago(
+    String id, {
+    String? metodoPago,
+    String? referenciaPago,
+  }) async {
+    await _reservas.doc(id).update({
+      'estado': 'Pagado',
+      'metodoPago': metodoPago,
+      'referenciaPago': referenciaPago,
+      'fechaPago': FieldValue.serverTimestamp(),
     });
   }
 
