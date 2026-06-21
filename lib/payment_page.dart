@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:js_interop';
 import 'dart:js_interop_unsafe';
@@ -55,11 +56,45 @@ class _PaymentPageState extends State<PaymentPage> {
   bool _pagoConfirmado = false;
   String? _error;
 
+  // Alto del contenedor de los botones de PayPal. Arranca chico (solo caben
+  // los botones), pero cuando el usuario elige "Tarjeta de débito o crédito",
+  // PayPal expande un formulario alto DENTRO del mismo <div>. Si el alto se
+  // queda fijo, ese formulario se desborda por debajo y los campos no se ven.
+  // Por eso se vigila el alto real del contenido y se ajusta el contenedor.
+  static const double _altoMinimo = 50;
+  double _altoContenedor = _altoMinimo;
+  Timer? _vigilanteAlto;
+
   @override
   void initState() {
     super.initState();
     _registrarVistaHtml();
     _cargarSdk();
+  }
+
+  @override
+  void dispose() {
+    _vigilanteAlto?.cancel();
+    super.dispose();
+  }
+
+  /// Vigila el alto real del contenido del <div> de PayPal y ajusta el
+  /// contenedor de Flutter para que el formulario de tarjeta quepa completo
+  /// (y se contraiga de nuevo al cerrarlo). `scrollHeight` reporta el alto
+  /// total del contenido aunque visualmente esté recortado.
+  void _vigilarAlto() {
+    _vigilanteAlto?.cancel();
+    _vigilanteAlto =
+        Timer.periodic(const Duration(milliseconds: 250), (_) {
+      if (!mounted) return;
+      final el = web.document.getElementById(_viewId);
+      if (el == null) return;
+      final alto = el.scrollHeight.toDouble();
+      final objetivo = alto < _altoMinimo ? _altoMinimo : alto;
+      if ((objetivo - _altoContenedor).abs() > 1) {
+        setState(() => _altoContenedor = objetivo);
+      }
+    });
   }
 
   /// Registra la fábrica que crea el <div> real del DOM donde se va a montar
@@ -100,6 +135,7 @@ class _PaymentPageState extends State<PaymentPage> {
       if (!mounted) return;
       if (web.document.getElementById(_viewId) != null) {
         _montarBotones();
+        _vigilarAlto();
         return;
       }
       await Future.delayed(const Duration(milliseconds: 100));
@@ -359,10 +395,11 @@ class _PaymentPageState extends State<PaymentPage> {
               child: Center(child: CircularProgressIndicator()),
             )
           else
-            // Alto fijo: el SDK de PayPal dimensiona los botones él mismo
-            // dentro de este contenedor.
+            // Alto dinámico: crece cuando PayPal expande el formulario de
+            // tarjeta (ver [_vigilarAlto]) y se contrae al cerrarlo, para que
+            // los campos nunca queden recortados fuera de la pantalla.
             SizedBox(
-              height: 50,
+              height: _altoContenedor,
               child: HtmlElementView(viewType: _viewId),
             ),
 
