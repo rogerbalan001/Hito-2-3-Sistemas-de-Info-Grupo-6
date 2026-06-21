@@ -1,9 +1,12 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'data/mock_data.dart';
+import 'services/dashboard_service.dart';
 import 'theme/app_theme.dart';
 
 /// Dashboard de Tendencias: métricas + gráficos (barras, dona, líneas).
+/// Los KPIs de Ingresos y Reservas se calculan en tiempo real desde Firestore
+/// (colección "reservas"); el resto de gráficos sigue con datos de ejemplo.
 class DashboardPage extends StatelessWidget {
   const DashboardPage({Key? key}) : super(key: key);
 
@@ -19,33 +22,40 @@ class DashboardPage extends StatelessWidget {
             style: TextStyle(color: AppColors.mutedForeground)),
         const SizedBox(height: 20),
 
-        // KPIs.
-        _KpiWrap(children: const [
-          _Kpi(
-              icon: Icons.attach_money,
-              value: '\$682',
-              label: 'Ingresos Totales',
-              color: AppColors.emerald600,
-              bg: AppColors.emerald50),
-          _Kpi(
-              icon: Icons.trending_up,
-              value: '5',
-              label: 'Reservas',
-              color: AppColors.blue600,
-              bg: AppColors.blue50),
-          _Kpi(
-              icon: Icons.groups_outlined,
-              value: '12',
-              label: 'Huéspedes',
-              color: AppColors.purple600,
-              bg: AppColors.purple50),
-          _Kpi(
-              icon: Icons.place_outlined,
-              value: '6',
-              label: 'Destinos',
-              color: AppColors.amber600,
-              bg: Color(0xFFFFFBEB)),
-        ]),
+        // KPIs: Ingresos y Reservas en vivo desde Firestore; Huéspedes y
+        // Destinos quedan como referencia con datos de ejemplo.
+        StreamBuilder<DashboardMetrics>(
+          stream: DashboardService().watchMetrics(),
+          builder: (context, snapshot) {
+            final m = snapshot.data ?? DashboardMetrics.empty;
+            return _KpiWrap(children: [
+              _Kpi(
+                  icon: Icons.attach_money,
+                  value: '\$${m.ingresos.round()}',
+                  label: 'Ingresos Totales',
+                  color: AppColors.emerald600,
+                  bg: AppColors.emerald50),
+              _Kpi(
+                  icon: Icons.trending_up,
+                  value: '${m.totalReservas}',
+                  label: 'Reservas',
+                  color: AppColors.blue600,
+                  bg: AppColors.blue50),
+              const _Kpi(
+                  icon: Icons.groups_outlined,
+                  value: '12',
+                  label: 'Huéspedes',
+                  color: AppColors.purple600,
+                  bg: AppColors.purple50),
+              const _Kpi(
+                  icon: Icons.place_outlined,
+                  value: '6',
+                  label: 'Destinos',
+                  color: AppColors.amber600,
+                  bg: Color(0xFFFFFBEB)),
+            ]);
+          },
+        ),
         const SizedBox(height: 16),
 
         _ChartCard(
