@@ -10,11 +10,24 @@ class PackagesPage extends StatelessWidget {
   /// Crea la reserva del paquete en estado "Solicitado". El pago se habilita
   /// después, cuando el administrador apruebe la solicitud.
   Future<void> _reservar(BuildContext context, TouristPackage p) async {
+    // Control de fechas: el viajero elige el rango de su estadía antes de
+    // crear la solicitud. Si cancela el selector, se aborta la reserva.
+    final rango = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime.now(),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+      helpText: 'Elige las fechas de tu estadía',
+      saveText: 'Confirmar',
+    );
+    if (rango == null) return;
+    if (!context.mounted) return;
     try {
       await ReservationService().crearReserva(
         alojamiento: p.name,
         ubicacion: p.destination,
         precioPorNoche: p.price,
+        fechaInicio: rango.start,
+        fechaFin: rango.end,
       );
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

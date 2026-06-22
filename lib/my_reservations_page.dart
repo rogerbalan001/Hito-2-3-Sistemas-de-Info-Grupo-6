@@ -8,8 +8,21 @@ import 'theme/app_theme.dart';
 /// Interfaz que consume ReservationService.misReservas() y muestra las
 /// reservaciones del usuario con su estado actual:
 /// Solicitado -> Aceptado -> Pagado -> Disfrutado, cada uno con un color.
-class MyReservationsPage extends StatelessWidget {
+class MyReservationsPage extends StatefulWidget {
   const MyReservationsPage({Key? key}) : super(key: key);
+
+  @override
+  State<MyReservationsPage> createState() => _MyReservationsPageState();
+}
+
+class _MyReservationsPageState extends State<MyReservationsPage> {
+  @override
+  void initState() {
+    super.initState();
+    // Control de fechas: al entrar a "Mis Reservas", promueve a "Disfrutado"
+    // las reservas pagadas cuya estadía ya terminó. Silencioso si falla.
+    ReservationService().promoverReservasVencidas().catchError((_) {});
+  }
 
   /// Color asociado a cada estado del ciclo de vida de la reserva.
   Color _colorEstado(String estado) {
@@ -75,6 +88,8 @@ class MyReservationsPage extends StatelessWidget {
               final data = docs[i].data();
               final estado = (data['estado'] ?? 'Solicitado') as String;
               final precio = (data['precioPorNoche'] ?? 0).toDouble();
+              final inicio = data['fechaInicio'];
+              final fin = data['fechaFin'];
               return _ReservaCard(
                 reservaId: docs[i].id,
                 alojamiento: (data['alojamiento'] ?? '') as String,
@@ -82,6 +97,8 @@ class MyReservationsPage extends StatelessWidget {
                 precioPorNoche: precio,
                 estado: estado,
                 color: _colorEstado(estado),
+                fechaInicio: inicio is Timestamp ? inicio.toDate() : null,
+                fechaFin: fin is Timestamp ? fin.toDate() : null,
               );
             },
           );
@@ -100,6 +117,8 @@ class _ReservaCard extends StatelessWidget {
   final double precioPorNoche;
   final String estado;
   final Color color;
+  final DateTime? fechaInicio;
+  final DateTime? fechaFin;
 
   const _ReservaCard({
     required this.reservaId,
@@ -108,10 +127,17 @@ class _ReservaCard extends StatelessWidget {
     required this.precioPorNoche,
     required this.estado,
     required this.color,
+    this.fechaInicio,
+    this.fechaFin,
   });
 
   /// El pago se habilita solo cuando el administrador aprobó la solicitud.
   bool get _puedePagar => estado == 'Aprobado' || estado == 'Aceptado';
+
+  /// Formatea una fecha como dd/mm/aaaa para mostrarla en la tarjeta.
+  String _fmt(DateTime d) =>
+      '${d.day.toString().padLeft(2, '0')}/'
+      '${d.month.toString().padLeft(2, '0')}/${d.year}';
 
   void _irAPagar(BuildContext context) {
     Navigator.push(
@@ -201,6 +227,21 @@ class _ReservaCard extends StatelessWidget {
                             color: AppColors.mutedForeground)),
                   ],
                 ),
+                // Fechas de la estadía elegidas al reservar.
+                if (fechaInicio != null && fechaFin != null) ...[
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      const Icon(Icons.event_outlined,
+                          size: 14, color: AppColors.mutedForeground),
+                      const SizedBox(width: 4),
+                      Text('${_fmt(fechaInicio!)} → ${_fmt(fechaFin!)}',
+                          style: const TextStyle(
+                              fontSize: 13,
+                              color: AppColors.mutedForeground)),
+                    ],
+                  ),
+                ],
                 const SizedBox(height: 6),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,

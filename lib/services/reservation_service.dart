@@ -28,6 +28,8 @@ class ReservationService {
     String estado = 'Solicitado',
     String? metodoPago,
     String? referenciaPago,
+    DateTime? fechaInicio,
+    DateTime? fechaFin,
   }) async {
     final usuario = AuthService().currentUser;
     await _reservas.add({
@@ -41,6 +43,10 @@ class ReservationService {
       'estado': estado,
       'metodoPago': metodoPago,
       'referenciaPago': referenciaPago,
+      // Fechas de la estadía elegidas por el viajero al reservar. Se usan para
+      // promover la reserva a "Disfrutado" cuando termina la estancia.
+      if (fechaInicio != null) 'fechaInicio': Timestamp.fromDate(fechaInicio),
+      if (fechaFin != null) 'fechaFin': Timestamp.fromDate(fechaFin),
       'fecha': FieldValue.serverTimestamp(),
     });
   }
@@ -78,5 +84,24 @@ class ReservationService {
     await _reservas.doc(id).update({
       'estado': nuevoEstado,
     });
+  }
+
+  /// Control de fechas: promueve automáticamente a "Disfrutado" las reservas
+  /// "Pagado" cuya fecha de fin de estadía ya pasó. Así el ciclo avanza solo,
+  /// sin que el administrador tenga que marcarlas a mano.
+  ///
+  /// Solo filtra por un campo (`estado`) en el servidor para no requerir un
+  /// índice compuesto en Firestore; la comparación de la fecha se hace en el
+  /// cliente.
+  Future<void> promoverReservasVencidas() async {
+    final ahora = DateTime.now();
+    final pagadas =
+        await _reservas.where('estado', isEqualTo: 'Pagado').get();
+    for (final doc in pagadas.docs) {
+      final fechaFin = doc.data()['fechaFin'];
+      if (fechaFin is Timestamp && !fechaFin.toDate().isAfter(ahora)) {
+        await doc.reference.update({'estado': 'Disfrutado'});
+      }
+    }
   }
 }

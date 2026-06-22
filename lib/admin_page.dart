@@ -22,6 +22,14 @@ class AdminPage extends StatefulWidget {
 class _AdminPageState extends State<AdminPage> {
   int _tab = 0;
 
+  @override
+  void initState() {
+    super.initState();
+    // Control de fechas: al abrir la administración, promueve a "Disfrutado"
+    // las reservas pagadas cuya estadía ya terminó. Silencioso si falla.
+    ReservationService().promoverReservasVencidas().catchError((_) {});
+  }
+
   static const _tabs = [
     'Hospedajes',
     'Reservas',
