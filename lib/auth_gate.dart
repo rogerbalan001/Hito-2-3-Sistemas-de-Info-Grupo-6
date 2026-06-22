@@ -1,7 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-import 'login_page.dart';
+import 'landing_page.dart';
 import 'main_shell.dart';
 import 'services/auth_service.dart';
 import 'theme/app_theme.dart';
@@ -12,8 +12,9 @@ import 'theme/app_theme.dart';
 /// sesión activa (Firebase la mantiene entre recargas/reinicios). Esta
 /// pantalla escucha el estado de sesión en tiempo real y decide: si hay un
 /// usuario con sesión, abre directo en el shell de Inicio; si no, muestra
-/// el login. Mientras Firebase termina de restaurar la sesión, se ve una
-/// breve pantalla de carga (suele tardar muy poco).
+/// la landing pública (presentación + accesos a login/registro). Mientras
+/// Firebase termina de restaurar la sesión, se ve una breve pantalla de
+/// carga (suele tardar muy poco).
 class AuthGate extends StatelessWidget {
   const AuthGate({Key? key}) : super(key: key);
 
@@ -29,7 +30,7 @@ class AuthGate extends StatelessWidget {
           );
         }
         final haySesion = snapshot.data != null;
-        return haySesion ? const MainShell() : const LoginPage();
+        return haySesion ? const MainShell() : const LandingPage();
       },
     );
   }

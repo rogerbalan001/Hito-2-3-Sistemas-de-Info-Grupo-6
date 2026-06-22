@@ -269,7 +269,8 @@ class _UserMenu extends StatelessWidget {
           Session.reset();
           await AuthService().logout();
           if (context.mounted) {
-            Navigator.pushReplacementNamed(context, '/login');
+            // Tras cerrar sesión se vuelve a la landing pública, no al login.
+            Navigator.pushReplacementNamed(context, '/landing');
           }
         }
       },

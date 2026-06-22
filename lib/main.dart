@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'auth_gate.dart';
+import 'landing_page.dart';
 import 'login_page.dart';
 import 'register_page.dart';
 import 'main_shell.dart';
@@ -33,6 +34,7 @@ class EcoSpotApp extends StatelessWidget {
       // ya usa el resto de la app (después de iniciar/cerrar sesión).
       home: const AuthGate(),
       routes: {
+        '/landing': (context) => const LandingPage(),
         '/login': (context) => const LoginPage(),
         '/register': (context) => const RegisterPage(),
         '/home': (context) => const MainShell(),
