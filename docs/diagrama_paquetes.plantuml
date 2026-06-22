@@ -1,0 +1,33 @@
+@startuml diagrama_paquetes
+title EcoSpot — Diagrama de Paquetes (Arquitectura en Capas)
+
+package "lib.pages (Presentación)" {
+  [LoginPage]
+  [RegisterPage]
+  [HomePage]
+  [SearchPage]
+}
+
+package "lib.services (Lógica/Servicios)" {
+  [AuthService] <<Singleton>>
+  [AccommodationRepository] <<Repository>>
+}
+
+package "lib.models (Datos/Dominio)" {
+  [Accommodation]
+}
+
+LoginPage --> AuthService
+RegisterPage --> AuthService
+HomePage --> SearchPage
+SearchPage --> AccommodationRepository
+AccommodationRepository --> Accommodation
+AuthService ..> Accommodation : (futuro: User)
+
+note right of AccommodationRepository
+  Hoy: mock en memoria
+  Futuro: Firebase/REST
+  (misma interfaz pública)
+end note
+
+@enduml
