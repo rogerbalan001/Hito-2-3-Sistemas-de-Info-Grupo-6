@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'data/mock_data.dart';
+import 'models/accommodation.dart';
+import 'services/accommodation_repository.dart';
 import 'theme/app_theme.dart';
 
 /// Comunidad y Feedback: estadísticas + reseñas validando precios.
@@ -20,6 +22,27 @@ class _CommunityPageState extends State<CommunityPage> {
   final _commentController = TextEditingController();
   int _rating = 5;
   bool _priceOk = true;
+  // Alojamiento/paquete al que pertenece la reseña (selector). Guardamos el
+  // nombre como clave y su ubicación asociada para la tarjeta.
+  String? _alojamientoSel;
+  String _ubicacionSel = '';
+
+  /// Combina el catálogo real de alojamientos (Firestore) con los paquetes
+  /// turísticos para ofrecerlos como opciones de la reseña. Para los paquetes
+  /// la "ubicación" es su destino.
+  List<_OpcionResena> _opciones(List<Accommodation> alojamientos) {
+    final vistos = <String>{};
+    final opciones = <_OpcionResena>[];
+    for (final a in alojamientos) {
+      if (vistos.add(a.name)) opciones.add(_OpcionResena(a.name, a.location));
+    }
+    for (final p in MockData.packages) {
+      if (vistos.add(p.name)) {
+        opciones.add(_OpcionResena(p.name, p.destination));
+      }
+    }
+    return opciones;
+  }
 
   @override
   void dispose() {
@@ -59,6 +82,13 @@ class _CommunityPageState extends State<CommunityPage> {
       );
       return;
     }
+    if (_alojamientoSel == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Elige el alojamiento o paquete que reseñas')),
+      );
+      return;
+    }
     final initials = name
         .split(' ')
         .where((p) => p.isNotEmpty)
@@ -76,14 +106,16 @@ class _CommunityPageState extends State<CommunityPage> {
           comment: comment,
           priceAccuracy: _priceOk,
           date: '2026-06-11',
-          accommodationName: 'Reseña general',
-          accommodationLocation: '',
+          accommodationName: _alojamientoSel!,
+          accommodationLocation: _ubicacionSel,
         ),
       );
       _nameController.clear();
       _commentController.clear();
       _rating = 5;
       _priceOk = true;
+      _alojamientoSel = null;
+      _ubicacionSel = '';
       _showForm = false;
     });
     ScaffoldMessenger.of(context).showSnackBar(
@@ -199,6 +231,47 @@ class _CommunityPageState extends State<CommunityPage> {
             ),
           ),
           const SizedBox(height: 12),
+          // Selector del alojamiento o paquete que se está reseñando. Carga el
+          // catálogo real en tiempo real y le suma los paquetes turísticos.
+          StreamBuilder<List<Accommodation>>(
+            stream: AccommodationRepository().watchAll(),
+            builder: (context, snapshot) {
+              final opciones = _opciones(snapshot.data ?? const []);
+              final nombres = opciones.map((o) => o.nombre).toSet();
+              return DropdownButtonFormField<String>(
+                initialValue:
+                    nombres.contains(_alojamientoSel) ? _alojamientoSel : null,
+                isExpanded: true,
+                decoration: const InputDecoration(
+                  labelText: 'Alojamiento o paquete',
+                  prefixIcon: Icon(Icons.home_work_outlined),
+                ),
+                hint: const Text('Selecciona uno'),
+                items: [
+                  for (final o in opciones)
+                    DropdownMenuItem<String>(
+                      value: o.nombre,
+                      child: Text(
+                        o.ubicacion.isEmpty
+                            ? o.nombre
+                            : '${o.nombre} · ${o.ubicacion}',
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                ],
+                onChanged: (valor) {
+                  setState(() {
+                    _alojamientoSel = valor;
+                    _ubicacionSel = opciones
+                        .firstWhere((o) => o.nombre == valor,
+                            orElse: () => const _OpcionResena('', ''))
+                        .ubicacion;
+                  });
+                },
+              );
+            },
+          ),
+          const SizedBox(height: 12),
           const Text('Calificación',
               style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
           const SizedBox(height: 4),
@@ -262,6 +335,13 @@ class _CommunityPageState extends State<CommunityPage> {
       ),
     );
   }
+}
+
+/// Opción del selector de reseña: un alojamiento o paquete con su ubicación.
+class _OpcionResena {
+  final String nombre;
+  final String ubicacion;
+  const _OpcionResena(this.nombre, this.ubicacion);
 }
 
 class _ReviewCard extends StatelessWidget {
