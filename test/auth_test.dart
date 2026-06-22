@@ -1,39 +1,38 @@
-
+// test/auth_test.dart
 import 'package:flutter_test/flutter_test.dart';
-import 'package:ecospot/services/auth_service.dart';
+import 'package:ecospot/services/auth_service.dart'; // AJUSTA el nombre del paquete según pubspec.yaml
 
 void main() {
-  group('AuthService - Patrón Singleton y Login', () {
-    test('Retorna siempre la misma instancia (Singleton)', () {
-      final instance1 = AuthService();
-      final instance2 = AuthService();
-      expect(identical(instance1, instance2), true);
+  group('AuthService - Patrón Singleton', () {
+    test('debe retornar siempre la misma instancia', () {
+      final instanciaA = AuthService();
+      final instanciaB = AuthService();
+      expect(identical(instanciaA, instanciaB), isTrue);
     });
 
-    test('Login exitoso con credenciales válidas', () async {
+    test('login con cuenta demo válida debe autenticar', () async {
       final auth = AuthService();
-      final result = await auth.login('demo@ecospot.com', 'password123');
-      expect(result, true);
-      expect(auth.isAuthenticated, true);
+      final resultado = await auth.login('demo@unimet.edu.ve', '123456');
+      expect(resultado, isTrue);
+      expect(auth.isAuthenticated, isTrue);
     });
 
-    test('Login fallido con credenciales inválidas', () async {
+    test('login con credenciales incorrectas debe fallar', () async {
       final auth = AuthService();
-      final result = await auth.login('demo@ecospot.com', 'wrongpass');
-      expect(result, false);
+      final resultado = await auth.login('demo@unimet.edu.ve', 'clave_incorrecta');
+      expect(resultado, isFalse);
     });
 
-    test('Logout limpia el estado de sesión', () async {
+    test('registro rechaza correos fuera del dominio institucional', () async {
       final auth = AuthService();
-      await auth.login('demo@ecospot.com', 'password123');
-      auth.logout();
-      expect(auth.isAuthenticated, false);
+      final resultado = await auth.register('usuario@gmail.com', 'Clave123');
+      expect(resultado, isFalse);
+    });
+
+    test('registro acepta dominio @unimet.edu.ve y @correo.unimet.edu.ve', () async {
+      final auth = AuthService();
+      expect(await auth.register('nuevo@unimet.edu.ve', 'Clave123'), isTrue);
+      expect(await auth.register('nuevo2@correo.unimet.edu.ve', 'Clave123'), isTrue);
     });
   });
 }
-
-/*
-  Supuesto de API: factory AuthService(), Future<bool> login(email, pass),
-  bool isAuthenticated, void logout(). Ajusta nombres a tu implementación real.
-  Resultado real (PASS/FAIL) se obtiene corriendo: flutter test test/auth_test.dart
-*/
