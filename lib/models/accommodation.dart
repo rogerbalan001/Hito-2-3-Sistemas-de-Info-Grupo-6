@@ -1,3 +1,14 @@
+/// Convierte un texto con una regla por línea en la lista usada por el modelo
+/// (recorta espacios y descarta líneas vacías). Es la inversa de unir las
+/// reglas con saltos de línea para mostrarlas/editarlas en un campo de texto.
+List<String> reglasFromText(String raw) {
+  return raw
+      .split('\n')
+      .map((linea) => linea.trim())
+      .where((linea) => linea.isNotEmpty)
+      .toList();
+}
+
 /// Capa de DATOS - Modelo de dominio.
 /// Representa un alojamiento económico publicado en EcoSpot.
 class Accommodation {
@@ -54,6 +65,7 @@ class Accommodation {
       capacity: (map['capacidad'] as num?)?.toInt(),
       transport: (map['transport'] as List?)?.cast<String>() ?? const [],
       amenities: (map['amenities'] as List?)?.cast<String>() ?? const [],
+      rules: (map['reglas'] as List?)?.cast<String>() ?? const [],
       operatorId: (map['operatorId'] ?? '') as String,
       available: (map['available'] as bool?) ?? true,
     );
@@ -76,6 +88,7 @@ class Accommodation {
       'capacidad': capacity,
       'transport': transport,
       'amenities': amenities,
+      'reglas': rules,
       'operatorId': operatorId,
       'available': available,
     };

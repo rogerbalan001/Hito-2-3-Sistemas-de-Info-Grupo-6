@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'models/accommodation.dart';
 import 'services/accommodation_service.dart';
 import 'theme/app_theme.dart';
 
@@ -23,6 +24,7 @@ class _AddAccommodationPageState extends State<AddAccommodationPage> {
   final _precioController = TextEditingController();
   final _capacidadController = TextEditingController();
   final _descripcionController = TextEditingController();
+  final _reglasController = TextEditingController();
 
   static const _tipos = ['Posada', 'Camping', 'Hostal', 'Cabaña', 'Eco-Lodge'];
   String _tipo = 'Posada';
@@ -36,6 +38,7 @@ class _AddAccommodationPageState extends State<AddAccommodationPage> {
     _precioController.dispose();
     _capacidadController.dispose();
     _descripcionController.dispose();
+    _reglasController.dispose();
     super.dispose();
   }
 
@@ -57,6 +60,7 @@ class _AddAccommodationPageState extends State<AddAccommodationPage> {
         precioPorNoche: double.parse(_precioController.text.trim()),
         capacidad: int.parse(_capacidadController.text.trim()),
         descripcion: _descripcionController.text.trim(),
+        reglas: reglasFromText(_reglasController.text),
       );
       _showMessage('Alojamiento publicado correctamente');
       // Limpia el formulario para una nueva carga.
@@ -66,6 +70,7 @@ class _AddAccommodationPageState extends State<AddAccommodationPage> {
       _precioController.clear();
       _capacidadController.clear();
       _descripcionController.clear();
+      _reglasController.clear();
       setState(() => _tipo = 'Posada');
     } catch (e) {
       _showMessage('No se pudo publicar: $e');
@@ -195,6 +200,23 @@ class _AddAccommodationPageState extends State<AddAccommodationPage> {
                   decoration: const InputDecoration(
                     labelText: 'Descripción (opcional)',
                     alignLabelWithHint: true,
+                  ),
+                ),
+                const SizedBox(height: 14),
+
+                // Reglas del lugar: una por línea. Si se deja vacío, el detalle
+                // del alojamiento muestra reglas genéricas por defecto.
+                TextFormField(
+                  controller: _reglasController,
+                  maxLines: 4,
+                  textCapitalization: TextCapitalization.sentences,
+                  decoration: const InputDecoration(
+                    labelText: 'Reglas del lugar (opcional)',
+                    hintText: 'Una regla por línea. Ej:\n'
+                        'Check-in desde las 2:00 PM\n'
+                        'No se permiten fiestas',
+                    alignLabelWithHint: true,
+                    prefixIcon: Icon(Icons.rule_outlined),
                   ),
                 ),
                 const SizedBox(height: 20),

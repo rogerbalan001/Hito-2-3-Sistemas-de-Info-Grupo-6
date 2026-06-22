@@ -340,6 +340,8 @@ class _AdminPageState extends State<AdminPage> {
     final capacidadCtrl =
         TextEditingController(text: '${a.capacity ?? 0}');
     final descripcionCtrl = TextEditingController(text: a.description ?? '');
+    // Reglas del lugar, editables individualmente (una por línea).
+    final reglasCtrl = TextEditingController(text: a.rules.join('\n'));
     var disponible = a.available;
 
     final guardar = await showDialog<bool>(
@@ -382,6 +384,14 @@ class _AdminPageState extends State<AdminPage> {
                   decoration:
                       const InputDecoration(labelText: 'Descripción'),
                 ),
+                TextField(
+                  controller: reglasCtrl,
+                  maxLines: 4,
+                  decoration: const InputDecoration(
+                    labelText: 'Reglas del lugar (una por línea)',
+                    alignLabelWithHint: true,
+                  ),
+                ),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
                   title: const Text('Disponible'),
@@ -422,6 +432,7 @@ class _AdminPageState extends State<AdminPage> {
             int.tryParse(capacidadCtrl.text.trim()) ?? (a.capacity ?? 0),
         descripcion: descripcionCtrl.text.trim(),
         available: disponible,
+        reglas: reglasFromText(reglasCtrl.text),
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

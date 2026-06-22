@@ -25,6 +25,7 @@ class AccommodationService {
     required double precioPorNoche,
     required int capacidad,
     String descripcion = '',
+    List<String> reglas = const [],
   }) async {
     final usuario = AuthService().currentUser;
     await _accommodations.add({
@@ -34,6 +35,8 @@ class AccommodationService {
       'precioPorNoche': precioPorNoche,
       'capacidad': capacidad,
       'descripcion': descripcion,
+      // Reglas del lugar definidas por el operador (una por elemento).
+      'reglas': reglas,
       'ownerId': usuario?.uid,
       'ownerEmail': usuario?.email,
       'fecha': FieldValue.serverTimestamp(),
@@ -57,6 +60,7 @@ class AccommodationService {
     required int capacidad,
     String descripcion = '',
     bool available = true,
+    List<String>? reglas,
   }) async {
     await _accommodations.doc(id).update({
       'nombre': nombre,
@@ -66,6 +70,9 @@ class AccommodationService {
       'capacidad': capacidad,
       'descripcion': descripcion,
       'available': available,
+      // Solo se sobreescriben las reglas si se pasan explícitamente, para no
+      // borrarlas en flujos que aún no las editan.
+      if (reglas != null) 'reglas': reglas,
     });
   }
 
