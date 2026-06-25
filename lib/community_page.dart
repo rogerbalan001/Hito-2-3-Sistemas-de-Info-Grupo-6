@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'data/mock_data.dart';
 import 'models/accommodation.dart';
 import 'services/accommodation_repository.dart';
+import 'services/review_service.dart';
 import 'theme/app_theme.dart';
 
 /// Comunidad y Feedback: estadísticas + reseñas validando precios.
@@ -12,7 +13,6 @@ class CommunityPage extends StatefulWidget {
 }
 
 class _CommunityPageState extends State<CommunityPage> {
-  final List<Review> _reviews = [...MockData.reviews];
   final _searchController = TextEditingController();
   String _search = '';
   bool _showForm = false;
@@ -52,28 +52,23 @@ class _CommunityPageState extends State<CommunityPage> {
     super.dispose();
   }
 
-  List<Review> get _filtered {
+  List<Review> _filtrar(List<Review> reviews) {
     final q = _search.trim().toLowerCase();
-    if (q.isEmpty) return _reviews;
-    return _reviews
+    if (q.isEmpty) return reviews;
+    return reviews
         .where((r) =>
             r.comment.toLowerCase().contains(q) ||
             r.userName.toLowerCase().contains(q))
         .toList();
   }
 
-  double get _avgRating => _reviews.isEmpty
-      ? 0
-      : _reviews.map((r) => r.rating).reduce((a, b) => a + b) /
-          _reviews.length;
+  String _fechaHoy() {
+    final d = DateTime.now();
+    return '${d.year}-${d.month.toString().padLeft(2, '0')}-'
+        '${d.day.toString().padLeft(2, '0')}';
+  }
 
-  int get _priceAccuracyRate => _reviews.isEmpty
-      ? 0
-      : ((_reviews.where((r) => r.priceAccuracy).length / _reviews.length) *
-              100)
-          .round();
-
-  void _publish() {
+  Future<void> _publish() async {
     final name = _nameController.text.trim();
     final comment = _commentController.text.trim();
     if (name.isEmpty || comment.isEmpty) {
@@ -96,36 +91,58 @@ class _CommunityPageState extends State<CommunityPage> {
         .take(2)
         .join()
         .toUpperCase();
-    setState(() {
-      _reviews.insert(
-        0,
-        Review(
-          userName: name,
-          avatar: initials,
-          rating: _rating,
-          comment: comment,
-          priceAccuracy: _priceOk,
-          date: '2026-06-11',
-          accommodationName: _alojamientoSel!,
-          accommodationLocation: _ubicacionSel,
-        ),
-      );
-      _nameController.clear();
-      _commentController.clear();
-      _rating = 5;
-      _priceOk = true;
-      _alojamientoSel = null;
-      _ubicacionSel = '';
-      _showForm = false;
-    });
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Reseña publicada exitosamente')),
+    final review = Review(
+      userName: name,
+      avatar: initials,
+      rating: _rating,
+      comment: comment,
+      priceAccuracy: _priceOk,
+      date: _fechaHoy(),
+      accommodationName: _alojamientoSel!,
+      accommodationLocation: _ubicacionSel,
     );
+    try {
+      // Persiste en Firestore; la lista se actualiza sola por el stream.
+      await ReviewService().agregar(review);
+      if (!mounted) return;
+      setState(() {
+        _nameController.clear();
+        _commentController.clear();
+        _rating = 5;
+        _priceOk = true;
+        _alojamientoSel = null;
+        _ubicacionSel = '';
+        _showForm = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Reseña publicada exitosamente')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No se pudo publicar la reseña: $e')),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
+    return StreamBuilder<List<Review>>(
+      stream: ReviewService().watchAll(),
+      builder: (context, snapshot) {
+        final reviews = snapshot.data ?? const <Review>[];
+        final filtered = _filtrar(reviews);
+        final avg = reviews.isEmpty
+            ? 0.0
+            : reviews.map((r) => r.rating).reduce((a, b) => a + b) /
+                reviews.length;
+        final rate = reviews.isEmpty
+            ? 0
+            : ((reviews.where((r) => r.priceAccuracy).length /
+                        reviews.length) *
+                    100)
+                .round();
+        return ListView(
       padding: const EdgeInsets.fromLTRB(16, 24, 16, 32),
       children: [
         Row(
@@ -159,15 +176,15 @@ class _CommunityPageState extends State<CommunityPage> {
         // Stats 2x2 / 4.
         _StatsWrap(children: [
           _MiniStat(
-              value: '${_reviews.length}',
+              value: '${reviews.length}',
               label: 'Total Reseñas',
               color: AppColors.emerald700),
           _MiniStat(
-              value: _avgRating.toStringAsFixed(1),
+              value: avg.toStringAsFixed(1),
               label: 'Rating Promedio',
               color: AppColors.amber600),
           _MiniStat(
-              value: '$_priceAccuracyRate%',
+              value: '$rate%',
               label: 'Precisión de Precios',
               color: AppColors.blue600),
           _MiniStat(
@@ -198,13 +215,15 @@ class _CommunityPageState extends State<CommunityPage> {
         ),
         const SizedBox(height: 16),
 
-        Text('Mostrando ${_filtered.length} de ${_reviews.length} reseñas',
+        Text('Mostrando ${filtered.length} de ${reviews.length} reseñas',
             style: const TextStyle(
                 fontSize: 13, color: AppColors.mutedForeground)),
         const SizedBox(height: 12),
 
-        ..._filtered.map((r) => _ReviewCard(review: r)),
+        ...filtered.map((r) => _ReviewCard(review: r)),
       ],
+        );
+      },
     );
   }
 

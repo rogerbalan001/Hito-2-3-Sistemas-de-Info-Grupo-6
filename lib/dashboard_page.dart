@@ -90,7 +90,23 @@ class DashboardPage extends StatelessWidget {
 
         _ChartCard(
           title: 'Estado de Reservas',
-          child: _DonutWithLegend(data: MockData.statusDistribution),
+          child: StreamBuilder<DashboardMetrics>(
+            stream: DashboardService().watchMetrics(),
+            builder: (context, snapshot) {
+              final m = snapshot.data ?? DashboardMetrics.empty;
+              final data = _estadosReales(m.porEstado);
+              if (data.isEmpty) {
+                return const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 24),
+                  child: Center(
+                    child: Text('Aún no hay reservas',
+                        style: TextStyle(color: AppColors.mutedForeground)),
+                  ),
+                );
+              }
+              return _DonutWithLegend(data: data);
+            },
+          ),
         ),
         const SizedBox(height: 16),
 
@@ -104,6 +120,29 @@ class DashboardPage extends StatelessWidget {
 }
 
 // ===================== Layout helpers =====================
+
+/// Convierte el conteo por estado (Firestore) en segmentos del donut, con un
+/// color fijo por estado y en el orden del ciclo de vida de la reserva.
+List<StatusCount> _estadosReales(Map<String, int> porEstado) {
+  const orden = <String, int>{
+    'Solicitado': 0xFFF59E0B,
+    'Aprobado': 0xFF2563EB,
+    'Pagado': 0xFF059669,
+    'Disfrutado': 0xFF065F46,
+    'Cancelado': 0xFFDC2626,
+  };
+  final out = <StatusCount>[];
+  orden.forEach((estado, color) {
+    final n = porEstado[estado] ?? 0;
+    if (n > 0) out.add(StatusCount(estado, n, color));
+  });
+  porEstado.forEach((estado, n) {
+    if (!orden.containsKey(estado) && n > 0) {
+      out.add(StatusCount(estado, n, 0xFF6B7280));
+    }
+  });
+  return out;
+}
 
 class _KpiWrap extends StatelessWidget {
   final List<Widget> children;

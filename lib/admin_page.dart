@@ -5,13 +5,17 @@ import 'models/accommodation.dart';
 import 'services/accommodation_repository.dart';
 import 'services/accommodation_service.dart';
 import 'services/reservation_service.dart';
+import 'services/review_service.dart';
+import 'services/package_service.dart';
+import 'services/catalog_service.dart';
 import 'theme/app_theme.dart';
 
 /// Pantalla de Administración (RF de mantenimiento).
-/// Replica el diseño del Figma: pestañas tipo "chip" que cambian la tabla
-/// mostrada en una tarjeta blanca, con botón "Agregar" y contador de registros.
+/// Pestañas tipo "chip" que cambian la tabla mostrada. Cada pestaña lee su
+/// colección de Cloud Firestore en tiempo real (solo la pestaña activa se
+/// suscribe) y ofrece acciones reales de agregar/editar/eliminar.
 /// Es contenido plano (sin Scaffold) porque la barra superior la aporta
-/// [MainShell]. Las acciones (agregar/editar/eliminar) son de demostración.
+/// [MainShell].
 class AdminPage extends StatefulWidget {
   const AdminPage({Key? key}) : super(key: key);
 
@@ -21,6 +25,10 @@ class AdminPage extends StatefulWidget {
 
 class _AdminPageState extends State<AdminPage> {
   int _tab = 0;
+
+  // Servicios de catálogo simple (una sola columna "nombre").
+  final CatalogService _transporte = CatalogService('transporte');
+  final CatalogService _regiones = CatalogService('regiones');
 
   @override
   void initState() {
@@ -39,73 +47,53 @@ class _AdminPageState extends State<AdminPage> {
     'Moderar Reseñas',
   ];
 
-  // Reseñas pendientes de moderar (las que reportan precio no exacto).
-  int get _pendientes =>
-      MockData.reviews.where((r) => !r.priceAccuracy).length;
-
-  void _demo(String accion) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$accion (demostración)')),
-    );
-  }
+  // Solo Paquetes/Transporte/Regiones permiten "Agregar" desde aquí. Los
+  // hospedajes se publican desde su propio flujo, las reservas las crean los
+  // viajeros y las reseñas las escriben los usuarios en Comunidad.
+  bool get _puedeAgregar => _tab == 2 || _tab == 3 || _tab == 4;
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<List<Accommodation>>(
-      stream: AccommodationRepository().watchAll(),
-      builder: (context, snapshot) {
-        final hospedajes = snapshot.data ?? const <Accommodation>[];
-        return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-          stream: ReservationService().todasLasReservas(),
-          builder: (context, snapshotRes) {
-            final reservas = snapshotRes.data?.docs ?? [];
-            return Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 1100),
-                child: ListView(
-                  padding: const EdgeInsets.fromLTRB(16, 24, 16, 32),
-                  children: [
-                    const Text(
-                      'Administración',
-                      style: TextStyle(fontSize: 26, fontWeight: FontWeight.w700),
-                    ),
-                    const SizedBox(height: 4),
-                    const Text(
-                      'Tablas de mantenimiento para la gestión del sistema',
-                      style: TextStyle(color: AppColors.mutedForeground),
-                    ),
-                    const SizedBox(height: 20),
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 1100),
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 24, 16, 32),
+          children: [
+            const Text(
+              'Administración',
+              style: TextStyle(fontSize: 26, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'Tablas de mantenimiento para la gestión del sistema',
+              style: TextStyle(color: AppColors.mutedForeground),
+            ),
+            const SizedBox(height: 20),
 
-                    // Pestañas tipo chip.
-                    Wrap(
-                      spacing: 10,
-                      runSpacing: 10,
-                      children: [
-                        for (var i = 0; i < _tabs.length; i++)
-                          _TabChip(
-                            label: _tabs[i],
-                            active: _tab == i,
-                            badge: i == 5 && _pendientes > 0 ? _pendientes : null,
-                            onTap: () => setState(() => _tab = i),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
+            // Pestañas tipo chip.
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                for (var i = 0; i < _tabs.length; i++)
+                  _TabChip(
+                    label: _tabs[i],
+                    active: _tab == i,
+                    onTap: () => setState(() => _tab = i),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 20),
 
-                    // Tarjeta con la tabla de la pestaña activa.
-                    _card(hospedajes, reservas),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
+            _card(),
+          ],
+        ),
+      ),
     );
   }
 
-  Widget _card(List<Accommodation> hospedajes, List<QueryDocumentSnapshot<Map<String, dynamic>>> reservas) {
-    final info = _currentTable(hospedajes, reservas);
+  Widget _card() {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -134,81 +122,133 @@ class _AdminPageState extends State<AdminPage> {
                         fontSize: 18, fontWeight: FontWeight.w700),
                   ),
                 ),
-                ElevatedButton.icon(
-                  onPressed: () => _demo('Agregar registro'),
-                  icon: const Icon(Icons.add, size: 18),
-                  label: const Text('Agregar'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.emerald600,
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 10),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
+                if (_puedeAgregar)
+                  ElevatedButton.icon(
+                    onPressed: _onAgregar,
+                    icon: const Icon(Icons.add, size: 18),
+                    label: const Text('Agregar'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.emerald600,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 10),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
                     ),
                   ),
-                ),
               ],
             ),
           ),
-          // La tabla puede ser ancha: scroll horizontal en pantallas chicas.
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                minWidth: MediaQuery.of(context).size.width - 64 > 1036
-                    ? 1036
-                    : MediaQuery.of(context).size.width - 64,
-              ),
-              child: info,
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-            child: Text(
-              '${_rowCount(hospedajes, reservas)} registro(s)',
-              style: const TextStyle(
-                  fontSize: 13, color: AppColors.mutedForeground),
-            ),
-          ),
+          _tabBody(),
         ],
       ),
     );
   }
 
-  int _rowCount(List<Accommodation> hospedajes, List<QueryDocumentSnapshot<Map<String, dynamic>>> reservas) {
+  /// Cuerpo de la pestaña activa. Solo esta pestaña se suscribe a Firestore.
+  Widget _tabBody() {
     switch (_tab) {
       case 0:
-        return hospedajes.length;
+        return StreamBuilder<List<Accommodation>>(
+          stream: AccommodationRepository().watchAll(),
+          builder: (context, s) {
+            final l = s.data ?? const <Accommodation>[];
+            return _tabla(_hospedajes(l), l.length);
+          },
+        );
       case 1:
-        return reservas.length;
+        return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+          stream: ReservationService().todasLasReservas(),
+          builder: (context, s) {
+            final docs = s.data?.docs ?? [];
+            return _tabla(_reservasTab(docs), docs.length);
+          },
+        );
       case 2:
-        return MockData.packages.length;
+        return StreamBuilder<List<TouristPackage>>(
+          stream: PackageService().watchAll(),
+          builder: (context, s) {
+            final l = s.data ?? const <TouristPackage>[];
+            return _tabla(_paquetes(l), l.length);
+          },
+        );
       case 3:
-        return MockData.transportLabels.length;
+        return StreamBuilder<List<NamedItem>>(
+          stream: _transporte.watchAll(),
+          builder: (context, s) {
+            final l = s.data ?? const <NamedItem>[];
+            return _tabla(
+                _simpleList(l, 'Transporte', _transporte), l.length);
+          },
+        );
       case 4:
-        return MockData.regions.length;
+        return StreamBuilder<List<NamedItem>>(
+          stream: _regiones.watchAll(),
+          builder: (context, s) {
+            final l = s.data ?? const <NamedItem>[];
+            return _tabla(_simpleList(l, 'Región', _regiones), l.length);
+          },
+        );
       default:
-        return MockData.reviews.length;
+        return StreamBuilder<List<Review>>(
+          stream: ReviewService().watchAll(),
+          builder: (context, s) {
+            final l = s.data ?? const <Review>[];
+            return _tabla(_resenas(l), l.length);
+          },
+        );
     }
   }
 
-  Widget _currentTable(List<Accommodation> hospedajes, List<QueryDocumentSnapshot<Map<String, dynamic>>> reservas) {
+  /// Envuelve una tabla con scroll horizontal y el contador de registros.
+  Widget _tabla(Widget tabla, int count) {
+    final ancho = MediaQuery.of(context).size.width - 64;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minWidth: ancho > 1036 ? 1036 : ancho),
+            child: tabla,
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+          child: Text(
+            '$count registro(s)',
+            style: const TextStyle(
+                fontSize: 13, color: AppColors.mutedForeground),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _onAgregar() {
     switch (_tab) {
-      case 0:
-        return _hospedajes(hospedajes);
-      case 1:
-        return _reservasTab(reservas);
       case 2:
-        return _paquetes();
+        _formPaquete();
+        break;
       case 3:
-        return _simpleList(MockData.transportLabels, 'Transporte');
+        _formNamed(_transporte, 'Transporte');
+        break;
       case 4:
-        return _simpleList(MockData.regions, 'Región');
-      default:
-        return _resenas();
+        _formNamed(_regiones, 'Región');
+        break;
     }
+  }
+
+  Widget _vacio(String mensaje) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 32),
+      child: Center(
+        child: Text(mensaje,
+            style: const TextStyle(color: AppColors.mutedForeground)),
+      ),
+    );
   }
 
   // Estilo común de la tabla.
@@ -226,36 +266,11 @@ class _AdminPageState extends State<AdminPage> {
     );
   }
 
-  List<DataCell> _accionesCells() {
-    return [
-      DataCell(Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.edit_outlined,
-                size: 18, color: AppColors.blue600),
-            onPressed: () => _demo('Editar'),
-            tooltip: 'Editar',
-          ),
-          IconButton(
-            icon: const Icon(Icons.delete_outline,
-                size: 18, color: AppColors.red600),
-            onPressed: () => _demo('Eliminar'),
-            tooltip: 'Eliminar',
-          ),
-        ],
-      )),
-    ];
-  }
+  // ===================== Hospedajes =====================
 
   Widget _hospedajes(List<Accommodation> hospedajes) {
     if (hospedajes.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 32),
-        child: Center(
-          child: Text('No hay alojamientos registrados',
-              style: TextStyle(color: AppColors.mutedForeground)),
-        ),
-      );
+      return _vacio('No hay alojamientos registrados');
     }
     return _table(
       const [
@@ -296,48 +311,18 @@ class _AdminPageState extends State<AdminPage> {
     );
   }
 
-  /// Pide confirmación y elimina el alojamiento de Firestore. La tabla se
-  /// actualiza sola porque escucha la colección en tiempo real.
   Future<void> _eliminarAlojamiento(Accommodation a) async {
     if (a.id == null) return;
-    final confirmar = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Eliminar alojamiento'),
-        content: Text('¿Seguro que deseas eliminar "${a.name}"? '
-            'Esta acción no se puede deshacer.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancelar'),
-          ),
-          ElevatedButton(
-            style:
-                ElevatedButton.styleFrom(backgroundColor: AppColors.red600),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Eliminar'),
-          ),
-        ],
-      ),
-    );
+    final confirmar = await _confirmarEliminar(a.name);
     if (confirmar != true) return;
     try {
       await AccommodationService().eliminarAlojamiento(a.id!);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('"${a.name}" eliminado')),
-      );
+      _avisar('"${a.name}" eliminado');
     } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('No se pudo eliminar: $e')),
-      );
+      _avisar('No se pudo eliminar: $e');
     }
   }
 
-  /// Abre un formulario para modificar los datos del alojamiento.
   Future<void> _editarAlojamiento(Accommodation a) async {
     if (a.id == null) return;
     final nombreCtrl = TextEditingController(text: a.name);
@@ -345,10 +330,8 @@ class _AdminPageState extends State<AdminPage> {
     final destinoCtrl = TextEditingController(text: a.location);
     final precioCtrl =
         TextEditingController(text: a.pricePerNight.toStringAsFixed(0));
-    final capacidadCtrl =
-        TextEditingController(text: '${a.capacity ?? 0}');
+    final capacidadCtrl = TextEditingController(text: '${a.capacity ?? 0}');
     final descripcionCtrl = TextEditingController(text: a.description ?? '');
-    // Reglas del lugar, editables individualmente (una por línea).
     final reglasCtrl = TextEditingController(text: a.rules.join('\n'));
     var disponible = a.available;
 
@@ -389,8 +372,7 @@ class _AdminPageState extends State<AdminPage> {
                 TextField(
                   controller: descripcionCtrl,
                   maxLines: 3,
-                  decoration:
-                      const InputDecoration(labelText: 'Descripción'),
+                  decoration: const InputDecoration(labelText: 'Descripción'),
                 ),
                 TextField(
                   controller: reglasCtrl,
@@ -405,8 +387,7 @@ class _AdminPageState extends State<AdminPage> {
                   title: const Text('Disponible'),
                   value: disponible,
                   activeColor: AppColors.emerald600,
-                  onChanged: (val) =>
-                      setStateDialog(() => disponible = val),
+                  onChanged: (val) => setStateDialog(() => disponible = val),
                 ),
               ],
             ),
@@ -434,35 +415,25 @@ class _AdminPageState extends State<AdminPage> {
         nombre: nombreCtrl.text.trim(),
         destino: destinoCtrl.text.trim(),
         tipo: tipoCtrl.text.trim(),
-        precioPorNoche: double.tryParse(precioCtrl.text.trim()) ??
-            a.pricePerNight,
+        precioPorNoche:
+            double.tryParse(precioCtrl.text.trim()) ?? a.pricePerNight,
         capacidad:
             int.tryParse(capacidadCtrl.text.trim()) ?? (a.capacity ?? 0),
         descripcion: descripcionCtrl.text.trim(),
         available: disponible,
         reglas: reglasFromText(reglasCtrl.text),
       );
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('"${nombreCtrl.text.trim()}" actualizado')),
-      );
+      _avisar('"${nombreCtrl.text.trim()}" actualizado');
     } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('No se pudo actualizar: $e')),
-      );
+      _avisar('No se pudo actualizar: $e');
     }
   }
 
+  // ===================== Reservas =====================
+
   Widget _reservasTab(List<QueryDocumentSnapshot<Map<String, dynamic>>> reservas) {
     if (reservas.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 32),
-        child: Center(
-          child: Text('No hay reservas registradas',
-              style: TextStyle(color: AppColors.mutedForeground)),
-        ),
-      );
+      return _vacio('No hay reservas registradas');
     }
     return _table(
       const [
@@ -476,7 +447,8 @@ class _AdminPageState extends State<AdminPage> {
         final data = doc.data();
         final id = doc.id;
         final email = data['usuarioEmail'] ?? 'Sin correo';
-        final destino = data['ubicacion'] ?? data['alojamiento'] ?? 'Desconocido';
+        final destino =
+            data['ubicacion'] ?? data['alojamiento'] ?? 'Desconocido';
         final precio = data['precioPorNoche'] ?? 0;
         final estado = data['estado'] ?? 'Solicitado';
 
@@ -487,28 +459,30 @@ class _AdminPageState extends State<AdminPage> {
           DataCell(_estadoReservaBadge(estado.toString())),
           DataCell(
             PopupMenuButton<String>(
-              icon: const Icon(Icons.more_vert, size: 18, color: AppColors.mutedForeground),
+              icon: const Icon(Icons.more_vert,
+                  size: 18, color: AppColors.mutedForeground),
               tooltip: 'Cambiar estado',
               onSelected: (nuevoEstado) async {
                 try {
                   await ReservationService().actualizarEstado(id, nuevoEstado);
-                  if (!mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Estado actualizado a $nuevoEstado')),
-                  );
+                  _avisar('Estado actualizado a $nuevoEstado');
                 } catch (e) {
-                  if (!mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Error al actualizar: $e')),
-                  );
+                  _avisar('Error al actualizar: $e');
                 }
               },
               itemBuilder: (context) => const [
-                PopupMenuItem(value: 'Solicitado', child: Text('Marcar como Solicitado')),
-                PopupMenuItem(value: 'Aprobado', child: Text('Aprobar Reserva')),
-                PopupMenuItem(value: 'Pagado', child: Text('Marcar como Pagado')),
-                PopupMenuItem(value: 'Disfrutado', child: Text('Marcar como Disfrutado')),
-                PopupMenuItem(value: 'Cancelado', child: Text('Cancelar Reserva')),
+                PopupMenuItem(
+                    value: 'Solicitado',
+                    child: Text('Marcar como Solicitado')),
+                PopupMenuItem(
+                    value: 'Aprobado', child: Text('Aprobar Reserva')),
+                PopupMenuItem(
+                    value: 'Pagado', child: Text('Marcar como Pagado')),
+                PopupMenuItem(
+                    value: 'Disfrutado',
+                    child: Text('Marcar como Disfrutado')),
+                PopupMenuItem(
+                    value: 'Cancelado', child: Text('Cancelar Reserva')),
               ],
             ),
           ),
@@ -545,7 +519,12 @@ class _AdminPageState extends State<AdminPage> {
     return _miniBadge(estado, bg, fg);
   }
 
-  Widget _paquetes() {
+  // ===================== Paquetes turísticos =====================
+
+  Widget _paquetes(List<TouristPackage> paquetes) {
+    if (paquetes.isEmpty) {
+      return _vacio('No hay paquetes registrados');
+    }
     return _table(
       const [
         DataColumn(label: Text('Nombre')),
@@ -555,7 +534,7 @@ class _AdminPageState extends State<AdminPage> {
         DataColumn(label: Text('Rating')),
         DataColumn(label: Text('Acciones')),
       ],
-      MockData.packages.map((p) {
+      paquetes.map((p) {
         return DataRow(cells: [
           DataCell(Text(p.name)),
           DataCell(Text(p.destination)),
@@ -568,28 +547,241 @@ class _AdminPageState extends State<AdminPage> {
               Text(p.rating.toStringAsFixed(1)),
             ],
           )),
-          ..._accionesCells(),
+          DataCell(Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.edit_outlined,
+                    size: 18, color: AppColors.blue600),
+                onPressed: () => _formPaquete(existente: p),
+                tooltip: 'Editar',
+              ),
+              IconButton(
+                icon: const Icon(Icons.delete_outline,
+                    size: 18, color: AppColors.red600),
+                onPressed: () => _eliminarPaquete(p),
+                tooltip: 'Eliminar',
+              ),
+            ],
+          )),
         ]);
       }).toList(),
     );
   }
 
-  Widget _simpleList(List<String> items, String colName) {
+  /// Formulario para agregar o editar un paquete turístico.
+  Future<void> _formPaquete({TouristPackage? existente}) async {
+    final editando = existente != null;
+    final nombreCtrl = TextEditingController(text: existente?.name ?? '');
+    final destinoCtrl =
+        TextEditingController(text: existente?.destination ?? '');
+    final duracionCtrl =
+        TextEditingController(text: existente?.duration ?? '');
+    final precioCtrl = TextEditingController(
+        text: existente != null ? existente.price.toStringAsFixed(0) : '');
+    final incluyeCtrl =
+        TextEditingController(text: existente?.includes.join(', ') ?? '');
+    final imagenCtrl = TextEditingController(text: existente?.imageUrl ?? '');
+    final ratingCtrl = TextEditingController(
+        text: existente != null ? existente.rating.toStringAsFixed(1) : '');
+
+    final guardar = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(editando ? 'Editar paquete' : 'Nuevo paquete'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nombreCtrl,
+                decoration: const InputDecoration(labelText: 'Nombre'),
+              ),
+              TextField(
+                controller: destinoCtrl,
+                decoration: const InputDecoration(labelText: 'Destino'),
+              ),
+              TextField(
+                controller: duracionCtrl,
+                decoration: const InputDecoration(
+                    labelText: 'Duración (ej. 5 días / 4 noches)'),
+              ),
+              TextField(
+                controller: precioCtrl,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: 'Precio (USD)'),
+              ),
+              TextField(
+                controller: incluyeCtrl,
+                decoration: const InputDecoration(
+                    labelText: 'Incluye (separado por comas)'),
+              ),
+              TextField(
+                controller: imagenCtrl,
+                decoration:
+                    const InputDecoration(labelText: 'URL de imagen (opcional)'),
+              ),
+              TextField(
+                controller: ratingCtrl,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: 'Rating (0-5)'),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.emerald600,
+                foregroundColor: Colors.white),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Guardar'),
+          ),
+        ],
+      ),
+    );
+    if (guardar != true) return;
+
+    final paquete = TouristPackage(
+      name: nombreCtrl.text.trim(),
+      destination: destinoCtrl.text.trim(),
+      duration: duracionCtrl.text.trim(),
+      price: double.tryParse(precioCtrl.text.trim()) ?? 0,
+      includes: incluyeCtrl.text
+          .split(',')
+          .map((e) => e.trim())
+          .where((e) => e.isNotEmpty)
+          .toList(),
+      imageUrl: imagenCtrl.text.trim(),
+      rating: double.tryParse(ratingCtrl.text.trim()) ?? 0,
+    );
+    try {
+      if (existente != null) {
+        await PackageService().actualizar(existente.id!, paquete);
+        _avisar('"${paquete.name}" actualizado');
+      } else {
+        await PackageService().agregar(paquete);
+        _avisar('"${paquete.name}" agregado');
+      }
+    } catch (e) {
+      _avisar('No se pudo guardar: $e');
+    }
+  }
+
+  Future<void> _eliminarPaquete(TouristPackage p) async {
+    if (p.id == null) return;
+    final confirmar = await _confirmarEliminar(p.name);
+    if (confirmar != true) return;
+    try {
+      await PackageService().eliminar(p.id!);
+      _avisar('"${p.name}" eliminado');
+    } catch (e) {
+      _avisar('No se pudo eliminar: $e');
+    }
+  }
+
+  // ===================== Transporte / Regiones =====================
+
+  Widget _simpleList(List<NamedItem> items, String colName, CatalogService s) {
+    if (items.isEmpty) {
+      return _vacio('No hay registros');
+    }
     return _table(
       [
         DataColumn(label: Text(colName)),
         const DataColumn(label: Text('Acciones')),
       ],
-      items.map((t) {
+      items.map((it) {
         return DataRow(cells: [
-          DataCell(Text(t)),
-          ..._accionesCells(),
+          DataCell(Text(it.nombre)),
+          DataCell(Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.edit_outlined,
+                    size: 18, color: AppColors.blue600),
+                onPressed: () => _formNamed(s, colName, existente: it),
+                tooltip: 'Editar',
+              ),
+              IconButton(
+                icon: const Icon(Icons.delete_outline,
+                    size: 18, color: AppColors.red600),
+                onPressed: () => _eliminarNamed(s, it),
+                tooltip: 'Eliminar',
+              ),
+            ],
+          )),
         ]);
       }).toList(),
     );
   }
 
-  Widget _resenas() {
+  /// Formulario para agregar o editar un elemento simple (transporte/región).
+  Future<void> _formNamed(CatalogService s, String label,
+      {NamedItem? existente}) async {
+    final editando = existente != null;
+    final ctrl = TextEditingController(text: existente?.nombre ?? '');
+    final guardar = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(editando ? 'Editar $label' : 'Nuevo $label'),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          decoration: InputDecoration(labelText: label),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.emerald600,
+                foregroundColor: Colors.white),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Guardar'),
+          ),
+        ],
+      ),
+    );
+    if (guardar != true) return;
+    final nombre = ctrl.text.trim();
+    if (nombre.isEmpty) return;
+    try {
+      if (existente != null) {
+        await s.actualizar(existente.id, nombre);
+        _avisar('"$nombre" actualizado');
+      } else {
+        await s.agregar(nombre);
+        _avisar('"$nombre" agregado');
+      }
+    } catch (e) {
+      _avisar('No se pudo guardar: $e');
+    }
+  }
+
+  Future<void> _eliminarNamed(CatalogService s, NamedItem it) async {
+    final confirmar = await _confirmarEliminar(it.nombre);
+    if (confirmar != true) return;
+    try {
+      await s.eliminar(it.id);
+      _avisar('"${it.nombre}" eliminado');
+    } catch (e) {
+      _avisar('No se pudo eliminar: $e');
+    }
+  }
+
+  // ===================== Moderar Reseñas =====================
+
+  Widget _resenas(List<Review> reviews) {
+    if (reviews.isEmpty) {
+      return _vacio('No hay reseñas registradas');
+    }
     return _table(
       const [
         DataColumn(label: Text('Usuario')),
@@ -598,7 +790,7 @@ class _AdminPageState extends State<AdminPage> {
         DataColumn(label: Text('Precio')),
         DataColumn(label: Text('Acciones')),
       ],
-      MockData.reviews.map((r) {
+      reviews.map((r) {
         return DataRow(cells: [
           DataCell(Text(r.userName)),
           DataCell(Text(r.accommodationName)),
@@ -615,9 +807,60 @@ class _AdminPageState extends State<AdminPage> {
                     AppColors.emerald700)
                 : _miniBadge('Reportado', AppColors.red50, AppColors.red600),
           ),
-          ..._accionesCells(),
+          DataCell(
+            IconButton(
+              icon: const Icon(Icons.delete_outline,
+                  size: 18, color: AppColors.red600),
+              onPressed: () => _eliminarResena(r),
+              tooltip: 'Eliminar reseña',
+            ),
+          ),
         ]);
       }).toList(),
+    );
+  }
+
+  Future<void> _eliminarResena(Review r) async {
+    if (r.id == null) return;
+    final confirmar = await _confirmarEliminar('la reseña de ${r.userName}');
+    if (confirmar != true) return;
+    try {
+      await ReviewService().eliminar(r.id!);
+      _avisar('Reseña eliminada');
+    } catch (e) {
+      _avisar('No se pudo eliminar: $e');
+    }
+  }
+
+  // ===================== Helpers comunes =====================
+
+  Future<bool?> _confirmarEliminar(String nombre) {
+    return showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Confirmar eliminación'),
+        content: Text('¿Seguro que deseas eliminar "$nombre"? '
+            'Esta acción no se puede deshacer.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.red600),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _avisar(String mensaje) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(mensaje)),
     );
   }
 
@@ -644,17 +887,15 @@ class _AdminPageState extends State<AdminPage> {
   }
 }
 
-/// Chip de pestaña con badge opcional (para "Moderar Reseñas").
+/// Chip de pestaña.
 class _TabChip extends StatelessWidget {
   final String label;
   final bool active;
-  final int? badge;
   final VoidCallback onTap;
   const _TabChip({
     required this.label,
     required this.active,
     required this.onTap,
-    this.badge,
   });
 
   @override
@@ -673,36 +914,13 @@ class _TabChip extends StatelessWidget {
               color: active ? AppColors.emerald600 : AppColors.border,
             ),
           ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: active ? Colors.white : AppColors.foreground,
-                ),
-              ),
-              if (badge != null) ...[
-                const SizedBox(width: 8),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                  decoration: const BoxDecoration(
-                    color: AppColors.red600,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Text(
-                    '$badge',
-                    style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700),
-                  ),
-                ),
-              ],
-            ],
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: active ? Colors.white : AppColors.foreground,
+            ),
           ),
         ),
       ),

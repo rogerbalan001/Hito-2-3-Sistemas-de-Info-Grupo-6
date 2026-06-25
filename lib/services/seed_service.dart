@@ -15,12 +15,37 @@ class SeedService {
   factory SeedService() => _instance;
   SeedService._internal();
 
+  final FirebaseFirestore _db = FirebaseFirestore.instance;
+
   final CollectionReference<Map<String, dynamic>> _accommodations =
       FirebaseFirestore.instance.collection('accommodations');
 
-  /// Siembra el catálogo solo si la colección está vacía. Pensado para
-  /// llamarse una vez tras iniciar sesión (contexto autenticado). Cualquier
-  /// error se ignora para no bloquear el flujo de la app.
+  /// Siembra TODAS las colecciones de catálogo que estén vacías (alojamientos,
+  /// paquetes, reseñas, transporte y regiones). Pensado para llamarse una vez
+  /// tras iniciar sesión. Cada colección se siembra de forma independiente.
+  Future<void> seedAllIfEmpty() async {
+    await seedAccommodationsIfEmpty();
+    await _seedIfEmpty(
+        'paquetes', () => MockData.packages.map((p) => p.toMap()).toList());
+    await _seedIfEmpty('resenas', () {
+      var i = 0;
+      // 'creado' incremental para que el orden inicial sea estable.
+      return MockData.reviews
+          .map((r) => {
+                ...r.toMap(),
+                'creado': Timestamp.fromMillisecondsSinceEpoch(i++),
+              })
+          .toList();
+    });
+    await _seedIfEmpty('transporte',
+        () => MockData.transportLabels.map((t) => {'nombre': t}).toList());
+    await _seedIfEmpty(
+        'regiones', () => MockData.regions.map((r) => {'nombre': r}).toList());
+  }
+
+  /// Siembra el catálogo de alojamientos solo si la colección está vacía.
+  /// Pensado para llamarse una vez tras iniciar sesión (contexto autenticado).
+  /// Cualquier error se ignora para no bloquear el flujo de la app.
   Future<void> seedAccommodationsIfEmpty() async {
     try {
       final existentes = await _accommodations.limit(1).get();
@@ -28,6 +53,26 @@ class SeedService {
       await _subirCatalogo();
     } catch (_) {
       // Sin permisos o sin red: se omite la siembra silenciosamente.
+    }
+  }
+
+  /// Helper genérico: si [coleccion] está vacía, sube los documentos que
+  /// produce [datos]. Silencioso ante errores.
+  Future<void> _seedIfEmpty(
+    String coleccion,
+    List<Map<String, dynamic>> Function() datos,
+  ) async {
+    try {
+      final col = _db.collection(coleccion);
+      final existentes = await col.limit(1).get();
+      if (existentes.docs.isNotEmpty) return;
+      final batch = _db.batch();
+      for (final d in datos()) {
+        batch.set(col.doc(), d);
+      }
+      await batch.commit();
+    } catch (_) {
+      // Se omite la siembra silenciosamente.
     }
   }
 

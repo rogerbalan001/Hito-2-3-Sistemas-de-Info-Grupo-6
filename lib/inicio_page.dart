@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'models/accommodation.dart';
 import 'services/accommodation_repository.dart';
+import 'services/package_service.dart';
 import 'accommodation_details_page.dart';
 import 'packages_page.dart';
 import 'data/mock_data.dart';
@@ -24,8 +25,6 @@ class InicioPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final paquetes = MockData.packages.take(3).toList();
-
     return ListView(
       padding: EdgeInsets.zero,
       children: [
@@ -211,18 +210,30 @@ class InicioPage extends StatelessWidget {
                 onSeeAll: () => onNavigate(2),
               ),
               const SizedBox(height: 16),
-              LayoutBuilder(
-                builder: (context, c) {
-                  final w = c.maxWidth;
-                  final cols = w >= 1000 ? 3 : (w >= 640 ? 2 : 1);
-                  final cardW = (w - 16 * (cols - 1)) / cols;
-                  return Wrap(
-                    spacing: 16,
-                    runSpacing: 16,
-                    children: paquetes
-                        .map((p) => SizedBox(
-                            width: cardW, child: PackageCard(package: p)))
-                        .toList(),
+              StreamBuilder<List<TouristPackage>>(
+                stream: PackageService().watchAll(),
+                builder: (context, snapshot) {
+                  final paquetes =
+                      (snapshot.data ?? const <TouristPackage>[])
+                          .take(3)
+                          .toList();
+                  if (paquetes.isEmpty) {
+                    return const SizedBox.shrink();
+                  }
+                  return LayoutBuilder(
+                    builder: (context, c) {
+                      final w = c.maxWidth;
+                      final cols = w >= 1000 ? 3 : (w >= 640 ? 2 : 1);
+                      final cardW = (w - 16 * (cols - 1)) / cols;
+                      return Wrap(
+                        spacing: 16,
+                        runSpacing: 16,
+                        children: paquetes
+                            .map((p) => SizedBox(
+                                width: cardW, child: PackageCard(package: p)))
+                            .toList(),
+                      );
+                    },
                   );
                 },
               ),

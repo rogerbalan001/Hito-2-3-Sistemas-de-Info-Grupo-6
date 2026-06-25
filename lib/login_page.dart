@@ -40,9 +40,10 @@ class _LoginPageState extends State<LoginPage> {
     if (!mounted) return;
 
     if (error == null) {
-      // Siembra el catálogo de ejemplo la primera vez (idempotente y en
-      // segundo plano: no demora la navegación). Requiere sesión activa.
-      SeedService().seedAccommodationsIfEmpty();
+      // Siembra los catálogos de ejemplo la primera vez (alojamientos,
+      // paquetes, reseñas, transporte, regiones). Idempotente y en segundo
+      // plano: no demora la navegación. Requiere sesión activa.
+      SeedService().seedAllIfEmpty();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Inicio de sesión exitoso')),
       );

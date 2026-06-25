@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'data/mock_data.dart';
+import 'services/package_service.dart';
 import 'services/reservation_service.dart';
 import 'theme/app_theme.dart';
 
@@ -57,23 +58,44 @@ class PackagesPage extends StatelessWidget {
           style: TextStyle(color: AppColors.mutedForeground),
         ),
         const SizedBox(height: 20),
-        LayoutBuilder(
-          builder: (context, c) {
-            final w = c.maxWidth;
-            final cols = w >= 1000 ? 3 : (w >= 640 ? 2 : 1);
-            final cardW = (w - 16 * (cols - 1)) / cols;
-            return Wrap(
-              spacing: 16,
-              runSpacing: 16,
-              children: MockData.packages
-                  .map((p) => SizedBox(
-                        width: cardW,
-                        child: PackageCard(
-                          package: p,
-                          onReserve: () => _reservar(context, p),
-                        ),
-                      ))
-                  .toList(),
+        StreamBuilder<List<TouristPackage>>(
+          stream: PackageService().watchAll(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Padding(
+                padding: EdgeInsets.symmetric(vertical: 40),
+                child: Center(child: CircularProgressIndicator()),
+              );
+            }
+            final paquetes = snapshot.data ?? const <TouristPackage>[];
+            if (paquetes.isEmpty) {
+              return const Padding(
+                padding: EdgeInsets.symmetric(vertical: 40),
+                child: Center(
+                  child: Text('No hay paquetes disponibles',
+                      style: TextStyle(color: AppColors.mutedForeground)),
+                ),
+              );
+            }
+            return LayoutBuilder(
+              builder: (context, c) {
+                final w = c.maxWidth;
+                final cols = w >= 1000 ? 3 : (w >= 640 ? 2 : 1);
+                final cardW = (w - 16 * (cols - 1)) / cols;
+                return Wrap(
+                  spacing: 16,
+                  runSpacing: 16,
+                  children: paquetes
+                      .map((p) => SizedBox(
+                            width: cardW,
+                            child: PackageCard(
+                              package: p,
+                              onReserve: () => _reservar(context, p),
+                            ),
+                          ))
+                      .toList(),
+                );
+              },
             );
           },
         ),

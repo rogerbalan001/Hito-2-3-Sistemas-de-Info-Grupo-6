@@ -22,6 +22,7 @@ class EcoImages {
 }
 
 class TouristPackage {
+  final String? id;
   final String name;
   final String destination;
   final String duration;
@@ -30,6 +31,7 @@ class TouristPackage {
   final String imageUrl;
   final double rating;
   const TouristPackage({
+    this.id,
     required this.name,
     required this.destination,
     required this.duration,
@@ -38,9 +40,35 @@ class TouristPackage {
     required this.imageUrl,
     required this.rating,
   });
+
+  factory TouristPackage.fromMap(Map<String, dynamic> map, {String? id}) {
+    return TouristPackage(
+      id: id,
+      name: (map['nombre'] ?? '') as String,
+      destination: (map['destino'] ?? '') as String,
+      duration: (map['duracion'] ?? '') as String,
+      price: (map['precio'] ?? 0).toDouble(),
+      includes: (map['incluye'] as List?)?.cast<String>() ?? const [],
+      imageUrl: (map['imageUrl'] ?? '') as String,
+      rating: (map['rating'] ?? 0).toDouble(),
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'nombre': name,
+      'destino': destination,
+      'duracion': duration,
+      'precio': price,
+      'incluye': includes,
+      'imageUrl': imageUrl,
+      'rating': rating,
+    };
+  }
 }
 
 class Review {
+  final String? id;
   final String userName;
   final String avatar;
   final int rating;
@@ -50,6 +78,7 @@ class Review {
   final String accommodationName;
   final String accommodationLocation;
   const Review({
+    this.id,
     required this.userName,
     required this.avatar,
     required this.rating,
@@ -59,6 +88,33 @@ class Review {
     required this.accommodationName,
     required this.accommodationLocation,
   });
+
+  factory Review.fromMap(Map<String, dynamic> map, {String? id}) {
+    return Review(
+      id: id,
+      userName: (map['usuario'] ?? '') as String,
+      avatar: (map['avatar'] ?? '') as String,
+      rating: (map['rating'] as num?)?.toInt() ?? 0,
+      comment: (map['comentario'] ?? '') as String,
+      priceAccuracy: (map['precioCoincide'] as bool?) ?? true,
+      date: (map['fecha'] ?? '') as String,
+      accommodationName: (map['alojamiento'] ?? '') as String,
+      accommodationLocation: (map['ubicacion'] ?? '') as String,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'usuario': userName,
+      'avatar': avatar,
+      'rating': rating,
+      'comentario': comment,
+      'precioCoincide': priceAccuracy,
+      'fecha': date,
+      'alojamiento': accommodationName,
+      'ubicacion': accommodationLocation,
+    };
+  }
 }
 
 class OperatorInfo {
