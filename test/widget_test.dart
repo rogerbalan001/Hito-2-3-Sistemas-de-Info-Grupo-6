@@ -1,7 +1,7 @@
 // test/widget_test.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:ecospot/pages/search_page.dart'; // AJUSTA según tu ruta real
+import 'package:ecospot/lib/search_page.dart'; // AJUSTA según tu ruta real
 
 void main() {
   group('Búsqueda - Widget Test', () {

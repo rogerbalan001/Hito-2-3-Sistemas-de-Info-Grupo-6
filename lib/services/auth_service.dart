@@ -26,10 +26,25 @@ class AuthService {
     // 'otro.admin@correo.unimet.edu.ve',
   ];
 
+  /// Cuenta de demostración: permite iniciar sesión sin pasar por Firebase,
+  /// útil para pruebas y demos sin depender de la red.
+  static const String _demoEmail = 'demo@unimet.edu.ve';
+  static const String _demoPassword = '123456';
+  bool _demoSession = false;
+
+  /// Dominios institucionales aceptados al registrarse.
+  static const List<String> _allowedDomains = <String>[
+    '@unimet.edu.ve',
+    '@correo.unimet.edu.ve',
+  ];
+
   /// Usuario autenticado actualmente (null si no hay sesión).
   User? get currentUser => _auth.currentUser;
 
   bool get isLoggedIn => _auth.currentUser != null;
+
+  /// Indica si hay una sesión activa, ya sea real (Firebase) o de demo.
+  bool get isAuthenticated => isLoggedIn || _demoSession;
 
   /// Emite el usuario actual cada vez que cambia el estado de sesión
   /// (login, logout, o la restauración de una sesión persistida al abrir la
@@ -94,5 +109,31 @@ class AuthService {
     }
   }
 
-  Future<void> logout() => _auth.signOut();
+  Future<void> logout() async {
+    _demoSession = false;
+    await _auth.signOut();
+  }
+
+  /// Variante de [login] que devuelve `bool` en vez del mensaje de error.
+  /// Acepta además la cuenta de demostración, sin pasar por Firebase.
+  Future<bool> loginOk(String email, String password) async {
+    final normalized = email.trim().toLowerCase();
+    if (normalized == _demoEmail && password == _demoPassword) {
+      _demoSession = true;
+      return true;
+    }
+    final error = await login(email, password);
+    return error == null;
+  }
+
+  /// Variante de [register] que devuelve `bool` en vez del mensaje de error.
+  /// Rechaza correos fuera de los dominios institucionales aceptados.
+  Future<bool> registerOk(String email, String password) async {
+    final normalized = email.trim().toLowerCase();
+    final tieneDominioValido =
+        _allowedDomains.any((domain) => normalized.endsWith(domain));
+    if (!tieneDominioValido) return false;
+    final error = await register(email, password);
+    return error == null;
+  }
 }

@@ -78,16 +78,17 @@ class _SearchPageState extends State<SearchPage> {
       builder: (context, snapshot) {
         final cargando =
             snapshot.connectionState == ConnectionState.waiting;
+        final errorMessage = snapshot.hasError ? '${snapshot.error}' : null;
         final todos = snapshot.data ?? const <Accommodation>[];
         final results =
             _repository.search(todos, query: _query, maxBudget: _maxBudget);
-        return _buildContent(context, results, cargando);
+        return _buildContent(context, results, cargando, errorMessage);
       },
     );
   }
 
-  Widget _buildContent(
-      BuildContext context, List<Accommodation> results, bool cargando) {
+  Widget _buildContent(BuildContext context, List<Accommodation> results,
+      bool cargando, String? errorMessage) {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 24, 16, 32),
       children: [
@@ -184,6 +185,21 @@ class _SearchPageState extends State<SearchPage> {
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 48),
             child: Center(child: CircularProgressIndicator()),
+          )
+        else if (errorMessage != null)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 48),
+            child: Column(
+              children: [
+                const Icon(Icons.error_outline,
+                    size: 48, color: AppColors.mutedForeground),
+                const SizedBox(height: 12),
+                Text('No se pudieron cargar los alojamientos: $errorMessage',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                        fontSize: 14, color: AppColors.mutedForeground)),
+              ],
+            ),
           )
         else if (results.isEmpty)
           const Padding(

@@ -12,27 +12,27 @@ void main() {
 
     test('login con cuenta demo válida debe autenticar', () async {
       final auth = AuthService();
-      final resultado = await auth.login('demo@unimet.edu.ve', '123456');
+      final resultado = await auth.loginOk('demo@unimet.edu.ve', '123456');
       expect(resultado, isTrue);
       expect(auth.isAuthenticated, isTrue);
     });
 
     test('login con credenciales incorrectas debe fallar', () async {
       final auth = AuthService();
-      final resultado = await auth.login('demo@unimet.edu.ve', 'clave_incorrecta');
+      final resultado = await auth.loginOk('demo@unimet.edu.ve', 'clave_incorrecta');
       expect(resultado, isFalse);
     });
 
     test('registro rechaza correos fuera del dominio institucional', () async {
       final auth = AuthService();
-      final resultado = await auth.register('usuario@gmail.com', 'Clave123');
+      final resultado = await auth.registerOk('usuario@gmail.com', 'Clave123');
       expect(resultado, isFalse);
     });
 
     test('registro acepta dominio @unimet.edu.ve y @correo.unimet.edu.ve', () async {
       final auth = AuthService();
-      expect(await auth.register('nuevo@unimet.edu.ve', 'Clave123'), isTrue);
-      expect(await auth.register('nuevo2@correo.unimet.edu.ve', 'Clave123'), isTrue);
+      expect(await auth.registerOk('nuevo@unimet.edu.ve', 'Clave123'), isTrue);
+      expect(await auth.registerOk('nuevo2@correo.unimet.edu.ve', 'Clave123'), isTrue);
     });
   });
 }
