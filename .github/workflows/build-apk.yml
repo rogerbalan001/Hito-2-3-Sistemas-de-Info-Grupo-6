@@ -1,0 +1,41 @@
+name: Compilar APK Android
+
+# Compila la aplicación móvil (Android) en cada push a main y deja el .apk
+# como artefacto descargable desde la pestaña Actions. Es independiente del
+# despliegue web (deploy.yml), así que no afecta GitHub Pages.
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar el repositorio
+        uses: actions/checkout@v4
+
+      - name: Instalar Java 17 (requerido por Gradle/Android)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Instalar Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Descargar dependencias
+        run: flutter pub get
+
+      - name: Compilar APK de release
+        run: flutter build apk --release
+
+      - name: Publicar el APK como artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: ecospot-android-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error

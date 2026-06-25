@@ -1,0 +1,112 @@
+diff --git a/.github/workflows/build-apk.yml b/.github/workflows/build-apk.yml
+new file mode 100644
+index 0000000..58f8f8e
+--- /dev/null
++++ b/.github/workflows/build-apk.yml
+@@ -0,0 +1,41 @@
++name: Compilar APK Android
++
++# Compila la aplicación móvil (Android) en cada push a main y deja el .apk
++# como artefacto descargable desde la pestaña Actions. Es independiente del
++# despliegue web (deploy.yml), así que no afecta GitHub Pages.
++
++on:
++  push:
++    branches: [ main ]
++  workflow_dispatch:
++
++jobs:
++  build-apk:
++    runs-on: ubuntu-latest
++    steps:
++      - name: Descargar el repositorio
++        uses: actions/checkout@v4
++
++      - name: Instalar Java 17 (requerido por Gradle/Android)
++        uses: actions/setup-java@v4
++        with:
++          distribution: temurin
++          java-version: '17'
++
++      - name: Instalar Flutter
++        uses: subosito/flutter-action@v2
++        with:
++          channel: stable
++
++      - name: Descargar dependencias
++        run: flutter pub get
++
++      - name: Compilar APK de release
++        run: flutter build apk --release
++
++      - name: Publicar el APK como artefacto
++        uses: actions/upload-artifact@v4
++        with:
++          name: ecospot-android-apk
++          path: build/app/outputs/flutter-apk/app-release.apk
++          if-no-files-found: error
+diff --git a/android/app/build.gradle.kts b/android/app/build.gradle.kts
+index d2c8af7..2e1ae37 100644
+--- a/android/app/build.gradle.kts
++++ b/android/app/build.gradle.kts
+@@ -22,7 +22,9 @@ android {
+         applicationId = "com.ecospot.ecospot"
+         // You can update the following values to match your application needs.
+         // For more information, see: https://flutter.dev/to/review-gradle-config.
+-        minSdk = flutter.minSdkVersion
++        // firebase_auth exige minSdk 23; se fija explícitamente para que el
++        // APK de release compile sin errores.
++        minSdk = 23
+         targetSdk = flutter.targetSdkVersion
+         versionCode = flutter.versionCode
+         versionName = flutter.versionName
+diff --git a/web/index.html b/web/index.html
+index 397f865..e36437c 100644
+--- a/web/index.html
++++ b/web/index.html
+@@ -18,18 +18,19 @@
+ 
+   <meta charset="UTF-8">
+   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+-  <meta name="description" content="A new Flutter project.">
++  <meta name="description" content="EcoSpot — Plataforma de turismo low-cost y sostenible en Venezuela: busca posadas y campings económicos, reserva y paga en línea.">
++  <meta name="theme-color" content="#059669">
+ 
+   <!-- iOS meta tags & icons -->
+   <meta name="mobile-web-app-capable" content="yes">
+   <meta name="apple-mobile-web-app-status-bar-style" content="black">
+-  <meta name="apple-mobile-web-app-title" content="ecospot">
++  <meta name="apple-mobile-web-app-title" content="EcoSpot">
+   <link rel="apple-touch-icon" href="icons/Icon-192.png">
+ 
+   <!-- Favicon -->
+   <link rel="icon" type="image/png" href="favicon.png"/>
+ 
+-  <title>ecospot</title>
++  <title>EcoSpot — Turismo Low-Cost</title>
+   <link rel="manifest" href="manifest.json">
+ </head>
+ <body>
+diff --git a/web/manifest.json b/web/manifest.json
+index 7cf3cc5..c249f3d 100644
+--- a/web/manifest.json
++++ b/web/manifest.json
+@@ -1,12 +1,13 @@
+ {
+-    "name": "ecospot",
+-    "short_name": "ecospot",
++    "name": "EcoSpot — Turismo Low-Cost",
++    "short_name": "EcoSpot",
+     "start_url": ".",
+     "display": "standalone",
+-    "background_color": "#0175C2",
+-    "theme_color": "#0175C2",
+-    "description": "A new Flutter project.",
++    "background_color": "#ffffff",
++    "theme_color": "#059669",
++    "description": "Plataforma de turismo low-cost y sostenible en Venezuela: busca posadas y campings económicos, reserva y paga en línea.",
+     "orientation": "portrait-primary",
++    "lang": "es-VE",
+     "prefer_related_applications": false,
+     "icons": [
+         {
