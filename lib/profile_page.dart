@@ -1,14 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'services/auth_service.dart';
+import 'services/image_upload_service.dart';
 import 'services/profile_service.dart';
 import 'services/session.dart';
 import 'theme/app_theme.dart';
 import 'add_accommodation_page.dart';
 
-/// MÓDULO "Perfil de Usuario" (Hito 2).
+/// MÓDULO "Perfil de Usuario" (Hito 2, extendido).
 /// Lee los datos del usuario logueado (email vía AuthService, datos extra vía
-/// ProfileService/Firestore) y permite editar nombre, teléfono y rol.
-/// El rol (Viajero / Operador turístico) prepara la gestión de roles a futuro.
+/// ProfileService/Firestore) y permite editar nombre, teléfono, rol, foto de
+/// perfil, dirección, género, ocupación, fecha de nacimiento y una breve
+/// biografía. El rol (Viajero / Operador turístico) prepara la gestión de
+/// roles a futuro.
 class ProfilePage extends StatefulWidget {
   const ProfilePage({Key? key}) : super(key: key);
 
@@ -19,12 +23,32 @@ class ProfilePage extends StatefulWidget {
 class _ProfilePageState extends State<ProfilePage> {
   final _auth = AuthService();
   final _profile = ProfileService();
+  final _images = ImageUploadService();
 
   final _nombreController = TextEditingController();
   final _telefonoController = TextEditingController();
+  final _direccionController = TextEditingController();
+  final _ocupacionController = TextEditingController();
+  final _biografiaController = TextEditingController();
 
   static const _roles = ['Viajero', 'Operador turístico'];
   String _rol = 'Viajero';
+
+  static const _generos = [
+    'Femenino',
+    'Masculino',
+    'Otro',
+    'Prefiero no decirlo',
+  ];
+  String? _genero;
+
+  DateTime? _fechaNacimiento;
+
+  // Foto de perfil: la que ya estaba guardada (URL) o una nueva elegida en
+  // esta sesión de edición (XFile), todavía sin subir.
+  String? _fotoUrlActual;
+  XFile? _fotoNueva;
+  bool _subiendoFoto = false;
 
   // Tipo de cuenta (solo lectura): true = Administrador, false = Viajero.
   // Lo determina el backend (AuthService.isCurrentUserAdmin); el usuario NO
@@ -44,6 +68,9 @@ class _ProfilePageState extends State<ProfilePage> {
   void dispose() {
     _nombreController.dispose();
     _telefonoController.dispose();
+    _direccionController.dispose();
+    _ocupacionController.dispose();
+    _biografiaController.dispose();
     super.dispose();
   }
 
@@ -55,10 +82,23 @@ class _ProfilePageState extends State<ProfilePage> {
       _nombreController.text =
           (datos?['nombre'] as String?) ?? (_auth.currentUser?.displayName ?? '');
       _telefonoController.text = (datos?['telefono'] as String?) ?? '';
+      _direccionController.text = (datos?['direccion'] as String?) ?? '';
+      _ocupacionController.text = (datos?['ocupacion'] as String?) ?? '';
+      _biografiaController.text = (datos?['biografia'] as String?) ?? '';
       final rolGuardado = datos?['rol'] as String?;
       if (rolGuardado != null && _roles.contains(rolGuardado)) {
         _rol = rolGuardado;
       }
+      final generoGuardado = datos?['genero'] as String?;
+      if (generoGuardado != null && _generos.contains(generoGuardado)) {
+        _genero = generoGuardado;
+      }
+      final fechaGuardada = datos?['fechaNacimiento'] as String?;
+      if (fechaGuardada != null) {
+        _fechaNacimiento = DateTime.tryParse(fechaGuardada);
+      }
+      _fotoUrlActual =
+          (datos?['fotoUrl'] as String?) ?? _auth.currentUser?.photoURL;
       // El tipo de cuenta lo decide el backend según el correo, no el perfil.
       _esAdmin = AuthService().isCurrentUserAdmin;
       Session.setAdmin(_esAdmin);
@@ -72,6 +112,26 @@ class _ProfilePageState extends State<ProfilePage> {
         .showSnackBar(SnackBar(content: Text(text)));
   }
 
+  Future<void> _elegirFoto() async {
+    final foto = await _images.seleccionarImagen();
+    if (foto == null) return;
+    setState(() => _fotoNueva = foto);
+  }
+
+  Future<void> _elegirFechaNacimiento() async {
+    final ahora = DateTime.now();
+    final elegida = await showDatePicker(
+      context: context,
+      initialDate: _fechaNacimiento ?? DateTime(ahora.year - 20),
+      firstDate: DateTime(1930),
+      lastDate: ahora,
+      helpText: 'Fecha de nacimiento',
+    );
+    if (elegida != null) {
+      setState(() => _fechaNacimiento = elegida);
+    }
+  }
+
   Future<void> _guardar() async {
     final nombre = _nombreController.text.trim();
     final telefono = _telefonoController.text.trim();
@@ -83,21 +143,84 @@ class _ProfilePageState extends State<ProfilePage> {
 
     setState(() => _guardando = true);
     try {
+      // Si se eligió una foto nueva, se sube primero a Storage.
+      String? fotoUrl;
+      if (_fotoNueva != null) {
+        setState(() => _subiendoFoto = true);
+        final uid = _auth.currentUser?.uid;
+        if (uid != null) {
+          fotoUrl = await _images.subirFotoPerfil(_fotoNueva!, uid);
+        }
+        if (mounted) setState(() => _subiendoFoto = false);
+      }
+
       await _profile.guardarPerfil(
         nombre: nombre,
         telefono: telefono,
         rol: _rol,
+        fotoUrl: fotoUrl,
+        direccion: _direccionController.text.trim(),
+        genero: _genero,
+        ocupacion: _ocupacionController.text.trim(),
+        fechaNacimiento: _fechaNacimiento?.toIso8601String(),
+        biografia: _biografiaController.text.trim(),
       );
+      if (fotoUrl != null) {
+        setState(() {
+          _fotoUrlActual = fotoUrl;
+          _fotoNueva = null;
+        });
+      }
       _showMessage('Perfil actualizado correctamente');
     } catch (e) {
       _showMessage('No se pudo guardar el perfil: $e');
     } finally {
-      if (mounted) setState(() => _guardando = false);
+      if (mounted) {
+        setState(() {
+          _guardando = false;
+          _subiendoFoto = false;
+        });
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    // Guardia defensiva: si por alguna razón se llega aquí sin sesión activa
+    // (por ejemplo, una sesión que expiró mientras la pantalla ya estaba
+    // abierta), no se ofrece edición de perfil. El punto de entrada normal
+    // ("Mi Perfil" en el menú de usuario) ya está oculto sin sesión, pero
+    // esta pantalla no depende solo de eso para protegerse.
+    if (_auth.currentUser == null) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBar(title: const Text('Mi Perfil')),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.lock_outline,
+                    size: 48, color: AppColors.mutedForeground),
+                const SizedBox(height: 12),
+                const Text(
+                  'Debes iniciar sesión para ver o editar tu perfil.',
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 20),
+                ElevatedButton(
+                  onPressed: () =>
+                      Navigator.pushReplacementNamed(context, '/login'),
+                  child: const Text('Iniciar Sesión'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     final email = _auth.currentUser?.email ?? 'Sin sesión';
     final base =
         _nombreController.text.isNotEmpty ? _nombreController.text : email;
@@ -125,23 +248,69 @@ class _ProfilePageState extends State<ProfilePage> {
           : ListView(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
               children: [
-                // Avatar con la inicial.
+                // Avatar: foto de perfil si existe, o la inicial. Se toca
+                // para elegir/cambiar la foto.
                 Center(
-                  child: Container(
-                    width: 88,
-                    height: 88,
-                    decoration: const BoxDecoration(
-                      color: AppColors.emerald100,
-                      shape: BoxShape.circle,
-                    ),
-                    alignment: Alignment.center,
-                    child: Text(
-                      inicial,
-                      style: const TextStyle(
-                        fontSize: 36,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.emerald700,
-                      ),
+                  child: GestureDetector(
+                    onTap: _subiendoFoto ? null : _elegirFoto,
+                    child: Stack(
+                      children: [
+                        Container(
+                          width: 88,
+                          height: 88,
+                          decoration: const BoxDecoration(
+                            color: AppColors.emerald100,
+                            shape: BoxShape.circle,
+                          ),
+                          clipBehavior: Clip.antiAlias,
+                          alignment: Alignment.center,
+                          child: _fotoNueva != null
+                              ? Image.network(_fotoNueva!.path,
+                                  width: 88, height: 88, fit: BoxFit.cover)
+                              : (_fotoUrlActual != null &&
+                                      _fotoUrlActual!.isNotEmpty)
+                                  ? Image.network(_fotoUrlActual!,
+                                      width: 88,
+                                      height: 88,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (_, __, ___) => Text(
+                                        inicial,
+                                        style: const TextStyle(
+                                          fontSize: 36,
+                                          fontWeight: FontWeight.w700,
+                                          color: AppColors.emerald700,
+                                        ),
+                                      ))
+                                  : Text(
+                                      inicial,
+                                      style: const TextStyle(
+                                        fontSize: 36,
+                                        fontWeight: FontWeight.w700,
+                                        color: AppColors.emerald700,
+                                      ),
+                                    ),
+                        ),
+                        Positioned(
+                          bottom: 0,
+                          right: 0,
+                          child: Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: const BoxDecoration(
+                              color: AppColors.emerald600,
+                              shape: BoxShape.circle,
+                            ),
+                            child: _subiendoFoto
+                                ? const SizedBox(
+                                    width: 14,
+                                    height: 14,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2, color: Colors.white),
+                                  )
+                                : const Icon(Icons.camera_alt_outlined,
+                                    size: 14, color: Colors.white),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -174,6 +343,97 @@ class _ProfilePageState extends State<ProfilePage> {
                   decoration: const InputDecoration(
                     hintText: '+58 ...',
                     prefixIcon: Icon(Icons.phone_outlined),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                const _Label('Dirección'),
+                TextField(
+                  controller: _direccionController,
+                  textCapitalization: TextCapitalization.sentences,
+                  decoration: const InputDecoration(
+                    hintText: 'Calle, sector, ciudad',
+                    prefixIcon: Icon(Icons.home_outlined),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                const _Label('Ocupación'),
+                TextField(
+                  controller: _ocupacionController,
+                  textCapitalization: TextCapitalization.sentences,
+                  decoration: const InputDecoration(
+                    hintText: 'Ej: Estudiante, Ingeniero/a, Comerciante',
+                    prefixIcon: Icon(Icons.work_outline),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                const _Label('Género'),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  decoration: BoxDecoration(
+                    color: AppColors.inputBackground,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: _genero,
+                      isExpanded: true,
+                      hint: const Text('Selecciona una opción'),
+                      icon: const Icon(Icons.keyboard_arrow_down,
+                          color: AppColors.mutedForeground),
+                      items: _generos
+                          .map((g) =>
+                              DropdownMenuItem(value: g, child: Text(g)))
+                          .toList(),
+                      onChanged: (val) => setState(() => _genero = val),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                const _Label('Fecha de nacimiento'),
+                InkWell(
+                  onTap: _elegirFechaNacimiento,
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 14),
+                    decoration: BoxDecoration(
+                      color: AppColors.inputBackground,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.cake_outlined,
+                            size: 18, color: AppColors.mutedForeground),
+                        const SizedBox(width: 10),
+                        Text(
+                          _fechaNacimiento == null
+                              ? 'Sin definir'
+                              : '${_fechaNacimiento!.day.toString().padLeft(2, '0')}/'
+                                  '${_fechaNacimiento!.month.toString().padLeft(2, '0')}/'
+                                  '${_fechaNacimiento!.year}',
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                const _Label('Biografía'),
+                TextField(
+                  controller: _biografiaController,
+                  maxLines: 3,
+                  textCapitalization: TextCapitalization.sentences,
+                  decoration: const InputDecoration(
+                    hintText: 'Cuéntanos un poco sobre ti (opcional)',
+                    alignLabelWithHint: true,
                   ),
                 ),
                 const SizedBox(height: 16),

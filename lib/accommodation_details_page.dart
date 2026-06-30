@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'models/accommodation.dart';
 import 'services/reservation_service.dart';
+import 'utils/auth_guard.dart';
+import 'widgets/reservation_extras_sheet.dart';
+import 'main_shell.dart';
 import 'theme/app_theme.dart';
 
 /// CU-02: Consultar detalle de servicio.
@@ -50,6 +53,9 @@ class AccommodationDetailsPage extends StatelessWidget {
   /// Crea la reserva en estado "Solicitado". El pago se habilita después,
   /// cuando el administrador apruebe la solicitud (desde "Mis Reservas").
   Future<void> _reservar(BuildContext context) async {
+    // Sin sesión activa no se puede reservar: se avisa y se manda a login.
+    if (!requireLogin(context, accion: 'reservar')) return;
+
     // Control de fechas: el viajero elige el rango de su estadía antes de
     // crear la solicitud. Si cancela el selector, se aborta la reserva.
     final rango = await showDateRangePicker(
@@ -61,6 +67,15 @@ class AccommodationDetailsPage extends StatelessWidget {
     );
     if (rango == null) return;
     if (!context.mounted) return;
+
+    // Datos adicionales: método de pago y cantidad de personas.
+    final extras = await askReservationExtras(
+      context,
+      maxPersonas: accommodation.capacity,
+    );
+    if (extras == null) return;
+    if (!context.mounted) return;
+
     try {
       await ReservationService().crearReserva(
         alojamiento: accommodation.name,
@@ -68,6 +83,8 @@ class AccommodationDetailsPage extends StatelessWidget {
         precioPorNoche: accommodation.pricePerNight,
         fechaInicio: rango.start,
         fechaFin: rango.end,
+        metodoPago: extras.metodoPago,
+        cantidadPersonas: extras.personas,
       );
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -76,7 +93,13 @@ class AccommodationDetailsPage extends StatelessWidget {
               'apruebe podrás pagarla desde "Mis Reservas".'),
         ),
       );
-      Navigator.pop(context);
+      // Lleva directo a "Mis Reservas" (pestaña 3) reiniciando la pila de
+      // navegación, sin importar desde dónde se llegó a esta pantalla.
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => const MainShell(initialIndex: 3)),
+        (route) => false,
+      );
     } catch (e) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -95,8 +118,10 @@ class AccommodationDetailsPage extends StatelessWidget {
       body: ListView(
         padding: EdgeInsets.zero,
         children: [
-          // Foto de cabecera con respaldo en degradado.
-          EcoImage(url: a.imageUrl, height: 230, fallbackIcon: _iconFor(a.type)),
+          // Galería de fotos: si hay más de una, se desliza horizontalmente
+          // con puntos indicadores; con una sola (o ninguna) se ve igual que
+          // antes.
+          _Galeria(fotos: a.allImages, fallbackIcon: _iconFor(a.type)),
 
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
@@ -163,6 +188,33 @@ class AccommodationDetailsPage extends StatelessWidget {
                       ),
                   ],
                 ),
+                if (a.bedrooms != null || a.bathrooms != null || a.beds != null) ...[
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: [
+                      if (a.bedrooms != null)
+                        _InfoChip(
+                          icon: Icons.bed_outlined,
+                          label: '${a.bedrooms} habitaciones',
+                          color: AppColors.purple600,
+                        ),
+                      if (a.beds != null)
+                        _InfoChip(
+                          icon: Icons.king_bed_outlined,
+                          label: '${a.beds} camas',
+                          color: AppColors.purple600,
+                        ),
+                      if (a.bathrooms != null)
+                        _InfoChip(
+                          icon: Icons.bathtub_outlined,
+                          label: '${a.bathrooms} baños',
+                          color: AppColors.purple600,
+                        ),
+                    ],
+                  ),
+                ],
                 const SizedBox(height: 24),
 
                 const _SectionTitle('Descripción'),
@@ -277,6 +329,78 @@ class _InfoChip extends StatelessWidget {
                   fontWeight: FontWeight.w600, color: color, fontSize: 13)),
         ],
       ),
+    );
+  }
+}
+
+/// Galería de fotos del alojamiento: un [PageView] deslizable con puntos
+/// indicadores cuando hay más de una foto. Con una sola foto (o ninguna) se
+/// comporta igual que la imagen de cabecera anterior.
+class _Galeria extends StatefulWidget {
+  final List<String> fotos;
+  final IconData fallbackIcon;
+  const _Galeria({required this.fotos, required this.fallbackIcon});
+
+  @override
+  State<_Galeria> createState() => _GaleriaState();
+}
+
+class _GaleriaState extends State<_Galeria> {
+  final _controller = PageController();
+  int _pagina = 0;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.fotos.length <= 1) {
+      return EcoImage(
+        url: widget.fotos.isEmpty ? null : widget.fotos.first,
+        height: 230,
+        fallbackIcon: widget.fallbackIcon,
+      );
+    }
+    return Stack(
+      alignment: Alignment.bottomCenter,
+      children: [
+        SizedBox(
+          height: 230,
+          child: PageView.builder(
+            controller: _controller,
+            itemCount: widget.fotos.length,
+            onPageChanged: (i) => setState(() => _pagina = i),
+            itemBuilder: (context, i) => EcoImage(
+              url: widget.fotos[i],
+              height: 230,
+              fallbackIcon: widget.fallbackIcon,
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (var i = 0; i < widget.fotos.length; i++)
+                Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 3),
+                  width: i == _pagina ? 8 : 6,
+                  height: i == _pagina ? 8 : 6,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: i == _pagina
+                        ? Colors.white
+                        : Colors.white.withOpacity(0.5),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

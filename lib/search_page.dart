@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'models/accommodation.dart';
 import 'services/accommodation_repository.dart';
 import 'services/reservation_service.dart';
+import 'utils/auth_guard.dart';
+import 'widgets/reservation_extras_sheet.dart';
 import 'accommodation_details_page.dart';
+import 'main_shell.dart';
 import 'theme/app_theme.dart';
 
 /// Pantalla de Búsqueda (contenido plano; la barra superior la pone el shell).
@@ -37,6 +40,9 @@ class _SearchPageState extends State<SearchPage> {
   /// Crea la reserva en estado "Solicitado". El pago se habilita después,
   /// cuando el administrador apruebe la solicitud (desde "Mis Reservas").
   Future<void> _reservar(Accommodation a) async {
+    // Sin sesión activa no se puede reservar: se avisa y se manda a login.
+    if (!requireLogin(context, accion: 'reservar')) return;
+
     // Control de fechas: el viajero elige el rango de su estadía antes de
     // crear la solicitud. Si cancela el selector, se aborta la reserva.
     final rango = await showDateRangePicker(
@@ -48,6 +54,12 @@ class _SearchPageState extends State<SearchPage> {
     );
     if (rango == null) return;
     if (!mounted) return;
+
+    // Datos adicionales: método de pago y cantidad de personas.
+    final extras = await askReservationExtras(context, maxPersonas: a.capacity);
+    if (extras == null) return;
+    if (!mounted) return;
+
     try {
       await ReservationService().crearReserva(
         alojamiento: a.name,
@@ -55,6 +67,8 @@ class _SearchPageState extends State<SearchPage> {
         precioPorNoche: a.pricePerNight,
         fechaInicio: rango.start,
         fechaFin: rango.end,
+        metodoPago: extras.metodoPago,
+        cantidadPersonas: extras.personas,
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -62,6 +76,13 @@ class _SearchPageState extends State<SearchPage> {
           content: Text('Solicitud enviada. Cuando el administrador la '
               'apruebe podrás pagarla desde "Mis Reservas".'),
         ),
+      );
+      // Lleva directo a "Mis Reservas" (pestaña 3), sin importar que esta
+      // pantalla sea en sí una pestaña del shell.
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => const MainShell(initialIndex: 3)),
+        (route) => false,
       );
     } catch (e) {
       if (!mounted) return;

@@ -1,13 +1,18 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'models/accommodation.dart';
 import 'services/accommodation_service.dart';
+import 'services/auth_service.dart';
+import 'services/image_upload_service.dart';
 import 'theme/app_theme.dart';
 
 /// Gestión de Publicaciones.
 /// Formulario donde un OPERADOR registra un alojamiento (nombre, destino, tipo,
-/// precio, capacidad). Al guardar hace un push a la colección "accommodations"
-/// de Cloud Firestore mediante AccommodationService.
+/// precio, capacidad, fotos, habitaciones/baños y amenidades, al estilo
+/// Airbnb/TuInmueble). Al guardar sube las fotos a Firebase Storage y hace un
+/// push a la colección "accommodations" de Cloud Firestore mediante
+/// AccommodationService.
 class AddAccommodationPage extends StatefulWidget {
   const AddAccommodationPage({Key? key}) : super(key: key);
 
@@ -17,17 +22,41 @@ class AddAccommodationPage extends StatefulWidget {
 
 class _AddAccommodationPageState extends State<AddAccommodationPage> {
   final _service = AccommodationService();
+  final _images = ImageUploadService();
   final _formKey = GlobalKey<FormState>();
 
   final _nombreController = TextEditingController();
   final _destinoController = TextEditingController();
   final _precioController = TextEditingController();
   final _capacidadController = TextEditingController();
+  final _habitacionesController = TextEditingController();
+  final _banosController = TextEditingController();
+  final _camasController = TextEditingController();
   final _descripcionController = TextEditingController();
   final _reglasController = TextEditingController();
 
   static const _tipos = ['Posada', 'Camping', 'Hostal', 'Cabaña', 'Eco-Lodge'];
   String _tipo = 'Posada';
+
+  /// Máximo de fotos permitidas por alojamiento (RF de galería de fotos).
+  static const int _maxFotos = 10;
+  final List<XFile> _fotos = [];
+  bool _subiendoFotos = false;
+
+  // Amenidades estilo Airbnb/TuInmueble, seleccionables con chips.
+  static const _amenidadesDisponibles = [
+    'Wifi',
+    'Aire acondicionado',
+    'Agua caliente',
+    'Cocina equipada',
+    'Estacionamiento',
+    'Piscina',
+    'Lavadora',
+    'TV',
+    'Desayuno incluido',
+    'Se permiten mascotas',
+  ];
+  final Set<String> _amenidades = {};
 
   bool _guardando = false;
 
@@ -37,6 +66,9 @@ class _AddAccommodationPageState extends State<AddAccommodationPage> {
     _destinoController.dispose();
     _precioController.dispose();
     _capacidadController.dispose();
+    _habitacionesController.dispose();
+    _banosController.dispose();
+    _camasController.dispose();
     _descripcionController.dispose();
     _reglasController.dispose();
     super.dispose();
@@ -48,11 +80,44 @@ class _AddAccommodationPageState extends State<AddAccommodationPage> {
         .showSnackBar(SnackBar(content: Text(text)));
   }
 
+  /// Abre el selector de imágenes respetando el límite de [_maxFotos] fotos
+  /// en total (las ya elegidas + las nuevas que se agreguen ahora).
+  Future<void> _agregarFotos() async {
+    final disponibles = _maxFotos - _fotos.length;
+    if (disponibles <= 0) {
+      _showMessage('Ya alcanzaste el máximo de $_maxFotos fotos.');
+      return;
+    }
+    final nuevas = await _images.seleccionarImagenes(maxImages: disponibles);
+    if (nuevas.isEmpty) return;
+    setState(() {
+      // Por si el usuario elige más de las que caben, se recorta aquí
+      // también (segunda barrera, además del `limit` del picker).
+      _fotos.addAll(nuevas.take(disponibles));
+    });
+  }
+
+  void _quitarFoto(int index) {
+    setState(() => _fotos.removeAt(index));
+  }
+
   Future<void> _guardar() async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _guardando = true);
     try {
+      // 1) Sube las fotos elegidas a Firebase Storage (si hay alguna) y
+      // obtiene sus URLs públicas.
+      List<String> urls = const [];
+      if (_fotos.isNotEmpty) {
+        setState(() => _subiendoFotos = true);
+        final uid = AuthService().currentUser?.uid ?? 'anon';
+        urls = await _images.subirFotosAlojamiento(_fotos, uid);
+        if (mounted) setState(() => _subiendoFotos = false);
+      }
+
+      // 2) Crea el documento del alojamiento con todos los datos, incluida
+      // la galería de fotos recién subida.
       await _service.agregarAlojamiento(
         nombre: _nombreController.text.trim(),
         destino: _destinoController.text.trim(),
@@ -61,6 +126,11 @@ class _AddAccommodationPageState extends State<AddAccommodationPage> {
         capacidad: int.parse(_capacidadController.text.trim()),
         descripcion: _descripcionController.text.trim(),
         reglas: reglasFromText(_reglasController.text),
+        imageUrls: urls,
+        habitaciones: int.tryParse(_habitacionesController.text.trim()),
+        banos: int.tryParse(_banosController.text.trim()),
+        camas: int.tryParse(_camasController.text.trim()),
+        amenities: _amenidades.toList(),
       );
       _showMessage('Alojamiento publicado correctamente');
       // Limpia el formulario para una nueva carga.
@@ -69,13 +139,25 @@ class _AddAccommodationPageState extends State<AddAccommodationPage> {
       _destinoController.clear();
       _precioController.clear();
       _capacidadController.clear();
+      _habitacionesController.clear();
+      _banosController.clear();
+      _camasController.clear();
       _descripcionController.clear();
       _reglasController.clear();
-      setState(() => _tipo = 'Posada');
+      setState(() {
+        _tipo = 'Posada';
+        _fotos.clear();
+        _amenidades.clear();
+      });
     } catch (e) {
       _showMessage('No se pudo publicar: $e');
     } finally {
-      if (mounted) setState(() => _guardando = false);
+      if (mounted) {
+        setState(() {
+          _guardando = false;
+          _subiendoFotos = false;
+        });
+      }
     }
   }
 
@@ -103,6 +185,34 @@ class _AddAccommodationPageState extends State<AddAccommodationPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // ===== Fotos del alojamiento (hasta _maxFotos) =====
+                const Text('Fotos del alojamiento',
+                    style: TextStyle(fontWeight: FontWeight.w600)),
+                const SizedBox(height: 4),
+                Text(
+                  'Agrega hasta $_maxFotos fotos (${_fotos.length}/$_maxFotos).',
+                  style: const TextStyle(
+                      fontSize: 12, color: AppColors.mutedForeground),
+                ),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: [
+                    for (var i = 0; i < _fotos.length; i++)
+                      _FotoThumbnail(
+                        foto: _fotos[i],
+                        onRemove: () => _quitarFoto(i),
+                      ),
+                    if (_fotos.length < _maxFotos)
+                      _AgregarFotoButton(
+                        cargando: _subiendoFotos,
+                        onTap: _agregarFotos,
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+
                 TextFormField(
                   controller: _nombreController,
                   textCapitalization: TextCapitalization.words,
@@ -190,6 +300,86 @@ class _AddAccommodationPageState extends State<AddAccommodationPage> {
                       ),
                     ),
                   ],
+                ),
+                const SizedBox(height: 14),
+
+                // Habitaciones, baños y camas (al estilo Airbnb/TuInmueble).
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: _habitacionesController,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'Habitaciones',
+                          prefixIcon: Icon(Icons.bed_outlined),
+                        ),
+                        validator: (v) {
+                          if (v == null || v.trim().isEmpty) return null;
+                          return int.tryParse(v.trim()) == null
+                              ? 'Inválido'
+                              : null;
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: TextFormField(
+                        controller: _banosController,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'Baños',
+                          prefixIcon: Icon(Icons.bathtub_outlined),
+                        ),
+                        validator: (v) {
+                          if (v == null || v.trim().isEmpty) return null;
+                          return int.tryParse(v.trim()) == null
+                              ? 'Inválido'
+                              : null;
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: TextFormField(
+                        controller: _camasController,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'Camas',
+                          prefixIcon: Icon(Icons.king_bed_outlined),
+                        ),
+                        validator: (v) {
+                          if (v == null || v.trim().isEmpty) return null;
+                          return int.tryParse(v.trim()) == null
+                              ? 'Inválido'
+                              : null;
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+
+                // Amenidades: lo que tiene el lugar (agua caliente, aire
+                // acondicionado, wifi, etc.), seleccionable con chips.
+                const Text('Amenidades',
+                    style: TextStyle(fontWeight: FontWeight.w600)),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: _amenidadesDisponibles.map((a) {
+                    final activo = _amenidades.contains(a);
+                    return FilterChip(
+                      label: Text(a),
+                      selected: activo,
+                      onSelected: (sel) => setState(() {
+                        sel ? _amenidades.add(a) : _amenidades.remove(a);
+                      }),
+                      selectedColor: AppColors.emerald100,
+                      checkmarkColor: AppColors.emerald700,
+                    );
+                  }).toList(),
                 ),
                 const SizedBox(height: 14),
 
@@ -319,6 +509,87 @@ class _AddAccommodationPageState extends State<AddAccommodationPage> {
             },
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Miniatura de una foto ya elegida, con botón para quitarla antes de
+/// publicar. Usa [Image.network] con la ruta del [XFile]: en Flutter Web esa
+/// ruta es una URL `blob:` local válida para previsualizar sin subir nada
+/// todavía.
+class _FotoThumbnail extends StatelessWidget {
+  final XFile foto;
+  final VoidCallback onRemove;
+  const _FotoThumbnail({required this.foto, required this.onRemove});
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(10),
+          child: Image.network(
+            foto.path,
+            width: 84,
+            height: 84,
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => Container(
+              width: 84,
+              height: 84,
+              color: AppColors.inputBackground,
+              child: const Icon(Icons.broken_image_outlined),
+            ),
+          ),
+        ),
+        Positioned(
+          top: -6,
+          right: -6,
+          child: InkWell(
+            onTap: onRemove,
+            child: Container(
+              padding: const EdgeInsets.all(2),
+              decoration: const BoxDecoration(
+                color: AppColors.red600,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.close, size: 14, color: Colors.white),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Botón cuadrado "+" para abrir el selector de fotos.
+class _AgregarFotoButton extends StatelessWidget {
+  final bool cargando;
+  final VoidCallback onTap;
+  const _AgregarFotoButton({required this.cargando, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: cargando ? null : onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        width: 84,
+        height: 84,
+        decoration: BoxDecoration(
+          color: AppColors.emerald50,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: AppColors.emerald200),
+        ),
+        alignment: Alignment.center,
+        child: cargando
+            ? const SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : const Icon(Icons.add_a_photo_outlined,
+                color: AppColors.emerald700),
       ),
     );
   }

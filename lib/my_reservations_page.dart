@@ -99,6 +99,8 @@ class _MyReservationsPageState extends State<MyReservationsPage> {
                 color: _colorEstado(estado),
                 fechaInicio: inicio is Timestamp ? inicio.toDate() : null,
                 fechaFin: fin is Timestamp ? fin.toDate() : null,
+                metodoPago: data['metodoPago'] as String?,
+                cantidadPersonas: (data['cantidadPersonas'] as num?)?.toInt(),
               );
             },
           );
@@ -119,6 +121,8 @@ class _ReservaCard extends StatelessWidget {
   final Color color;
   final DateTime? fechaInicio;
   final DateTime? fechaFin;
+  final String? metodoPago;
+  final int? cantidadPersonas;
 
   const _ReservaCard({
     required this.reservaId,
@@ -129,6 +133,8 @@ class _ReservaCard extends StatelessWidget {
     required this.color,
     this.fechaInicio,
     this.fechaFin,
+    this.metodoPago,
+    this.cantidadPersonas,
   });
 
   /// El pago se habilita solo cuando el administrador aprobó la solicitud.
@@ -239,6 +245,37 @@ class _ReservaCard extends StatelessWidget {
                           style: const TextStyle(
                               fontSize: 13,
                               color: AppColors.mutedForeground)),
+                    ],
+                  ),
+                ],
+                // Cantidad de personas y método de pago elegidos al reservar.
+                if (cantidadPersonas != null || metodoPago != null) ...[
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      if (cantidadPersonas != null) ...[
+                        const Icon(Icons.group_outlined,
+                            size: 14, color: AppColors.mutedForeground),
+                        const SizedBox(width: 4),
+                        Text('$cantidadPersonas personas',
+                            style: const TextStyle(
+                                fontSize: 13,
+                                color: AppColors.mutedForeground)),
+                      ],
+                      if (cantidadPersonas != null && metodoPago != null)
+                        const Text(' · ',
+                            style: TextStyle(
+                                fontSize: 13,
+                                color: AppColors.mutedForeground)),
+                      if (metodoPago != null) ...[
+                        const Icon(Icons.payments_outlined,
+                            size: 14, color: AppColors.mutedForeground),
+                        const SizedBox(width: 4),
+                        Text(metodoPago!,
+                            style: const TextStyle(
+                                fontSize: 13,
+                                color: AppColors.mutedForeground)),
+                      ],
                     ],
                   ),
                 ],

@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'data/mock_data.dart';
 import 'services/package_service.dart';
 import 'services/reservation_service.dart';
+import 'utils/auth_guard.dart';
+import 'widgets/reservation_extras_sheet.dart';
+import 'main_shell.dart';
 import 'theme/app_theme.dart';
 
 /// Pantalla de Paquetes Turísticos (cuadrícula responsiva de tarjetas).
@@ -11,6 +14,9 @@ class PackagesPage extends StatelessWidget {
   /// Crea la reserva del paquete en estado "Solicitado". El pago se habilita
   /// después, cuando el administrador apruebe la solicitud.
   Future<void> _reservar(BuildContext context, TouristPackage p) async {
+    // Sin sesión activa no se puede reservar: se avisa y se manda a login.
+    if (!requireLogin(context, accion: 'reservar')) return;
+
     // Control de fechas: el viajero elige el rango de su estadía antes de
     // crear la solicitud. Si cancela el selector, se aborta la reserva.
     final rango = await showDateRangePicker(
@@ -22,6 +28,12 @@ class PackagesPage extends StatelessWidget {
     );
     if (rango == null) return;
     if (!context.mounted) return;
+
+    // Datos adicionales: método de pago y cantidad de personas.
+    final extras = await askReservationExtras(context);
+    if (extras == null) return;
+    if (!context.mounted) return;
+
     try {
       await ReservationService().crearReserva(
         alojamiento: p.name,
@@ -29,6 +41,8 @@ class PackagesPage extends StatelessWidget {
         precioPorNoche: p.price,
         fechaInicio: rango.start,
         fechaFin: rango.end,
+        metodoPago: extras.metodoPago,
+        cantidadPersonas: extras.personas,
       );
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -36,6 +50,13 @@ class PackagesPage extends StatelessWidget {
           content: Text('Solicitud enviada. Cuando el administrador la '
               'apruebe podrás pagarla desde "Mis Reservas".'),
         ),
+      );
+      // Lleva directo a "Mis Reservas" (pestaña 3), sin importar que esta
+      // pantalla sea en sí una pestaña del shell.
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => const MainShell(initialIndex: 3)),
+        (route) => false,
       );
     } catch (e) {
       if (!context.mounted) return;
