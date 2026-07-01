@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'data/mock_data.dart' show Review;
 import 'models/accommodation.dart';
 import 'services/reservation_service.dart';
 import 'services/review_service.dart';
@@ -310,8 +311,6 @@ class _AccommodationDetailsPageState extends State<AccommodationDetailsPage> {
     );
   }
 }
-
-import 'data/mock_data.dart' show Review;
 
 class _SectionTitle extends StatelessWidget {
   final String text;
