@@ -76,6 +76,40 @@ class ReservationService {
     return _reservas.where('usuarioId', isEqualTo: usuario?.uid).snapshots();
   }
 
+  /// Devuelve los nombres de alojamientos donde el usuario actual tiene una
+  /// reserva en estado "Disfrutado" o "Pagado". Se usa para validar que solo
+  /// pueda reseñar lugares donde realmente se ha alojado.
+  Future<Set<String>> alojamientosVisitados() async {
+    final usuario = AuthService().currentUser;
+    if (usuario == null) return {};
+    final snap = await _reservas
+        .where('usuarioId', isEqualTo: usuario.uid)
+        .where('estado', whereIn: ['Disfrutado', 'Pagado']).get();
+    return snap.docs
+        .map((d) => (d.data()['alojamiento'] as String?) ?? '')
+        .where((n) => n.isNotEmpty)
+        .toSet();
+  }
+
+  /// Verifica si un alojamiento (por nombre) tiene reservas activas
+  /// (Solicitado, Aprobado o Pagado). Usado por el administrador para evitar
+  /// eliminar un alojamiento con reservas en curso.
+  Future<bool> tieneReservasActivas(String nombreAlojamiento) async {
+    final snap = await _reservas
+        .where('alojamiento', isEqualTo: nombreAlojamiento)
+        .where('estado', whereIn: ['Solicitado', 'Aprobado', 'Pagado']).get();
+    return snap.docs.isNotEmpty;
+  }
+
+  /// Devuelve todas las reservas de un alojamiento específico (por nombre).
+  /// Usada en la pantalla de detalle para mostrar reseñas asociadas al lugar.
+  Stream<QuerySnapshot<Map<String, dynamic>>> reservasDelAlojamiento(
+      String nombreAlojamiento) {
+    return _reservas
+        .where('alojamiento', isEqualTo: nombreAlojamiento)
+        .snapshots();
+  }
+
   /// Obtiene todas las reservas (para la vista de Administrador).
   /// Permite listar las solicitudes activas de los clientes.
   Stream<QuerySnapshot<Map<String, dynamic>>> todasLasReservas() {

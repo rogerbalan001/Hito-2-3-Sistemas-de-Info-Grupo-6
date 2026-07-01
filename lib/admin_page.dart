@@ -313,6 +313,18 @@ class _AdminPageState extends State<AdminPage> {
 
   Future<void> _eliminarAlojamiento(Accommodation a) async {
     if (a.id == null) return;
+    // Protección: no se puede eliminar un alojamiento que tiene reservas
+    // activas (Solicitado, Aprobado o Pagado). Cancelar una reserva en curso
+    // sin avisar al viajero causaría una mala experiencia.
+    final tieneActivas =
+        await ReservationService().tieneReservasActivas(a.name);
+    if (tieneActivas) {
+      _avisar(
+        'No se puede eliminar "${a.name}" porque tiene reservas activas '
+        '(Solicitado, Aprobado o Pagado). Cancélalas primero desde la pestaña Reservas.',
+      );
+      return;
+    }
     final confirmar = await _confirmarEliminar(a.name);
     if (confirmar != true) return;
     try {

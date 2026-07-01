@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'data/mock_data.dart';
 import 'models/accommodation.dart';
 import 'services/accommodation_repository.dart';
+import 'services/auth_service.dart';
+import 'services/reservation_service.dart';
 import 'services/review_service.dart';
 import 'theme/app_theme.dart';
 
@@ -22,22 +24,43 @@ class _CommunityPageState extends State<CommunityPage> {
   final _commentController = TextEditingController();
   int _rating = 5;
   bool _priceOk = true;
-  // Alojamiento/paquete al que pertenece la reseña (selector). Guardamos el
-  // nombre como clave y su ubicación asociada para la tarjeta.
   String? _alojamientoSel;
   String _ubicacionSel = '';
 
-  /// Combina el catálogo real de alojamientos (Firestore) con los paquetes
-  /// turísticos para ofrecerlos como opciones de la reseña. Para los paquetes
-  /// la "ubicación" es su destino.
+  // Alojamientos donde el usuario tiene reservas "Disfrutado"/"Pagado".
+  // Solo estos aparecen en el selector de reseña.
+  Set<String> _visitados = {};
+  bool _cargandoVisitados = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _cargarVisitados();
+  }
+
+  Future<void> _cargarVisitados() async {
+    if (AuthService().currentUser == null) return;
+    setState(() => _cargandoVisitados = true);
+    final visitados = await ReservationService().alojamientosVisitados();
+    if (mounted) setState(() {
+      _visitados = visitados;
+      _cargandoVisitados = false;
+    });
+  }
+
+  /// Solo ofrece como opciones los alojamientos/paquetes donde el usuario
+  /// tiene una reserva "Disfrutado" o "Pagado". Si no hay ninguno, el
+  /// formulario avisa que necesita haber visitado un lugar primero.
   List<_OpcionResena> _opciones(List<Accommodation> alojamientos) {
     final vistos = <String>{};
     final opciones = <_OpcionResena>[];
     for (final a in alojamientos) {
-      if (vistos.add(a.name)) opciones.add(_OpcionResena(a.name, a.location));
+      if (_visitados.contains(a.name) && vistos.add(a.name)) {
+        opciones.add(_OpcionResena(a.name, a.location));
+      }
     }
     for (final p in MockData.packages) {
-      if (vistos.add(p.name)) {
+      if (_visitados.contains(p.name) && vistos.add(p.name)) {
         opciones.add(_OpcionResena(p.name, p.destination));
       }
     }
@@ -164,11 +187,28 @@ class _CommunityPageState extends State<CommunityPage> {
               ),
             ),
             const SizedBox(width: 12),
-            ElevatedButton.icon(
-              onPressed: () => setState(() => _showForm = !_showForm),
-              icon: const Icon(Icons.chat_bubble_outline, size: 18),
-              label: const Text('Escribir Reseña'),
-            ),
+            // Botón "Escribir Reseña": solo visible con sesión activa.
+            if (AuthService().currentUser != null)
+              ElevatedButton.icon(
+                onPressed: () {
+                  // Si el usuario no ha visitado ningún lugar, se le avisa
+                  // en vez de abrir el formulario vacío.
+                  if (!_cargandoVisitados && _visitados.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Solo puedes reseñar alojamientos donde '
+                          'te hayas hospedado (reserva "Pagado" o "Disfrutado").',
+                        ),
+                      ),
+                    );
+                    return;
+                  }
+                  setState(() => _showForm = !_showForm);
+                },
+                icon: const Icon(Icons.chat_bubble_outline, size: 18),
+                label: const Text('Escribir Reseña'),
+              ),
           ],
         ),
         const SizedBox(height: 20),

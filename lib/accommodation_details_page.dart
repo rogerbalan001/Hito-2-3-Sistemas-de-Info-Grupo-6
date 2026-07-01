@@ -1,47 +1,50 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'models/accommodation.dart';
 import 'services/reservation_service.dart';
+import 'services/review_service.dart';
 import 'utils/auth_guard.dart';
 import 'widgets/reservation_extras_sheet.dart';
 import 'main_shell.dart';
 import 'theme/app_theme.dart';
 
 /// CU-02: Consultar detalle de servicio.
-/// Se abre con Navigator.push desde la lista de búsqueda, recibiendo el
-/// [Accommodation] por constructor. Muestra foto, rating, amenidades,
-/// descripción, reglas y el botón definitivo de "Reservar" (RF04).
-class AccommodationDetailsPage extends StatelessWidget {
+/// Muestra foto cuadrada, galería, rating, amenidades, descripción, reglas,
+/// habitaciones/baños/camas, botón de Reservar y sección de reseñas del lugar.
+class AccommodationDetailsPage extends StatefulWidget {
   final Accommodation accommodation;
   const AccommodationDetailsPage({Key? key, required this.accommodation})
       : super(key: key);
 
+  @override
+  State<AccommodationDetailsPage> createState() =>
+      _AccommodationDetailsPageState();
+}
+
+class _AccommodationDetailsPageState extends State<AccommodationDetailsPage> {
+  Accommodation get a => widget.accommodation;
+
   IconData _iconFor(String type) {
     switch (type) {
-      case 'Camping':
-        return Icons.park;
-      case 'Hostal':
-        return Icons.bed;
-      case 'Cabaña':
-        return Icons.cabin;
-      case 'Eco-Lodge':
-        return Icons.forest;
-      default:
-        return Icons.hotel;
+      case 'Camping': return Icons.park;
+      case 'Hostal': return Icons.bed;
+      case 'Cabaña': return Icons.cabin;
+      case 'Eco-Lodge': return Icons.forest;
+      default: return Icons.hotel;
     }
   }
 
   String _descripcion() {
-    if (accommodation.description != null &&
-        accommodation.description!.trim().isNotEmpty) {
-      return accommodation.description!;
+    if (a.description != null && a.description!.trim().isNotEmpty) {
+      return a.description!;
     }
-    return 'Alojamiento de tipo ${accommodation.type.toLowerCase()} ubicado en '
-        '${accommodation.location}. Una opción económica y sostenible, ideal '
+    return 'Alojamiento de tipo ${a.type.toLowerCase()} ubicado en '
+        '${a.location}. Una opción económica y sostenible, ideal '
         'para viajeros que buscan vivir la experiencia local sin gastar de más.';
   }
 
   List<String> _reglas() {
-    if (accommodation.rules.isNotEmpty) return accommodation.rules;
+    if (a.rules.isNotEmpty) return a.rules;
     return const [
       'Check-in desde las 2:00 PM · Check-out hasta las 11:00 AM',
       'No se permiten fiestas ni eventos',
@@ -50,14 +53,8 @@ class AccommodationDetailsPage extends StatelessWidget {
     ];
   }
 
-  /// Crea la reserva en estado "Solicitado". El pago se habilita después,
-  /// cuando el administrador apruebe la solicitud (desde "Mis Reservas").
   Future<void> _reservar(BuildContext context) async {
-    // Sin sesión activa no se puede reservar: se avisa y se manda a login.
     if (!requireLogin(context, accion: 'reservar')) return;
-
-    // Control de fechas: el viajero elige el rango de su estadía antes de
-    // crear la solicitud. Si cancela el selector, se aborta la reserva.
     final rango = await showDateRangePicker(
       context: context,
       firstDate: DateTime.now(),
@@ -67,20 +64,14 @@ class AccommodationDetailsPage extends StatelessWidget {
     );
     if (rango == null) return;
     if (!context.mounted) return;
-
-    // Datos adicionales: método de pago y cantidad de personas.
-    final extras = await askReservationExtras(
-      context,
-      maxPersonas: accommodation.capacity,
-    );
+    final extras = await askReservationExtras(context, maxPersonas: a.capacity);
     if (extras == null) return;
     if (!context.mounted) return;
-
     try {
       await ReservationService().crearReserva(
-        alojamiento: accommodation.name,
-        ubicacion: accommodation.location,
-        precioPorNoche: accommodation.pricePerNight,
+        alojamiento: a.name,
+        ubicacion: a.location,
+        precioPorNoche: a.pricePerNight,
         fechaInicio: rango.start,
         fechaFin: rango.end,
         metodoPago: extras.metodoPago,
@@ -93,8 +84,6 @@ class AccommodationDetailsPage extends StatelessWidget {
               'apruebe podrás pagarla desde "Mis Reservas".'),
         ),
       );
-      // Lleva directo a "Mis Reservas" (pestaña 3) reiniciando la pila de
-      // navegación, sin importar desde dónde se llegó a esta pantalla.
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(builder: (_) => const MainShell(initialIndex: 3)),
@@ -110,33 +99,34 @@ class AccommodationDetailsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final a = accommodation;
-
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(title: const Text('Detalle del alojamiento')),
+      appBar: AppBar(title: Text(a.name)),
       body: ListView(
         padding: EdgeInsets.zero,
         children: [
-          // Galería de fotos: si hay más de una, se desliza horizontalmente
-          // con puntos indicadores; con una sola (o ninguna) se ve igual que
-          // antes.
-          _Galeria(fotos: a.allImages, fallbackIcon: _iconFor(a.type)),
+          // Galería cuadrada (aspect ratio 1:1).
+          AspectRatio(
+            aspectRatio: 1,
+            child: _Galeria(
+              fotos: a.allImages,
+              fallbackIcon: _iconFor(a.type),
+            ),
+          ),
 
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Nombre + badge tipo
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(
-                      child: Text(
-                        a.name,
-                        style: const TextStyle(
-                            fontSize: 24, fontWeight: FontWeight.w700),
-                      ),
+                      child: Text(a.name,
+                          style: const TextStyle(
+                              fontSize: 24, fontWeight: FontWeight.w700)),
                     ),
                     Container(
                       padding: const EdgeInsets.symmetric(
@@ -145,18 +135,17 @@ class AccommodationDetailsPage extends StatelessWidget {
                         color: AppColors.emerald100,
                         borderRadius: BorderRadius.circular(999),
                       ),
-                      child: Text(
-                        a.type,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.emerald700,
-                        ),
-                      ),
+                      child: Text(a.type,
+                          style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.emerald700)),
                     ),
                   ],
                 ),
                 const SizedBox(height: 8),
+
+                // Ubicación + rating
                 Row(
                   children: [
                     const Icon(Icons.place_outlined,
@@ -167,64 +156,55 @@ class AccommodationDetailsPage extends StatelessWidget {
                             color: AppColors.mutedForeground)),
                     const SizedBox(width: 12),
                     if (a.rating > 0)
-                      StarRating(rating: a.rating, reviewCount: a.reviewCount),
+                      StarRating(
+                          rating: a.rating, reviewCount: a.reviewCount),
                   ],
                 ),
                 const SizedBox(height: 16),
 
-                Row(
+                // Precio + capacidad
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
                   children: [
                     _InfoChip(
-                      icon: Icons.attach_money,
-                      label: '\$${a.pricePerNight.round()}/noche',
-                      color: AppColors.emerald700,
-                    ),
-                    const SizedBox(width: 10),
+                        icon: Icons.attach_money,
+                        label: '\$${a.pricePerNight.round()}/noche',
+                        color: AppColors.emerald700),
                     if (a.capacity != null)
                       _InfoChip(
-                        icon: Icons.group_outlined,
-                        label: 'Hasta ${a.capacity} personas',
-                        color: AppColors.blue600,
-                      ),
-                  ],
-                ),
-                if (a.bedrooms != null || a.bathrooms != null || a.beds != null) ...[
-                  const SizedBox(height: 10),
-                  Wrap(
-                    spacing: 10,
-                    runSpacing: 10,
-                    children: [
-                      if (a.bedrooms != null)
-                        _InfoChip(
+                          icon: Icons.group_outlined,
+                          label: 'Hasta ${a.capacity} personas',
+                          color: AppColors.blue600),
+                    if (a.bedrooms != null)
+                      _InfoChip(
                           icon: Icons.bed_outlined,
-                          label: '${a.bedrooms} habitaciones',
-                          color: AppColors.purple600,
-                        ),
-                      if (a.beds != null)
-                        _InfoChip(
+                          label: '${a.bedrooms} hab.',
+                          color: AppColors.purple600),
+                    if (a.beds != null)
+                      _InfoChip(
                           icon: Icons.king_bed_outlined,
                           label: '${a.beds} camas',
-                          color: AppColors.purple600,
-                        ),
-                      if (a.bathrooms != null)
-                        _InfoChip(
+                          color: AppColors.purple600),
+                    if (a.bathrooms != null)
+                      _InfoChip(
                           icon: Icons.bathtub_outlined,
                           label: '${a.bathrooms} baños',
-                          color: AppColors.purple600,
-                        ),
-                    ],
-                  ),
-                ],
+                          color: AppColors.purple600),
+                  ],
+                ),
                 const SizedBox(height: 24),
 
+                // Descripción
                 const _SectionTitle('Descripción'),
                 const SizedBox(height: 6),
-                Text(
-                  _descripcion(),
-                  style: const TextStyle(
-                      fontSize: 14, height: 1.5, color: AppColors.foreground),
-                ),
+                Text(_descripcion(),
+                    style: const TextStyle(
+                        fontSize: 14,
+                        height: 1.6,
+                        color: AppColors.foreground)),
 
+                // Amenidades
                 if (a.amenities.isNotEmpty) ...[
                   const SizedBox(height: 24),
                   const _SectionTitle('Amenidades'),
@@ -242,18 +222,17 @@ class AccommodationDetailsPage extends StatelessWidget {
                                 border:
                                     Border.all(color: AppColors.emerald100),
                               ),
-                              child: Text(
-                                am,
-                                style: const TextStyle(
-                                    fontSize: 12,
-                                    color: AppColors.emerald700,
-                                    fontWeight: FontWeight.w500),
-                              ),
+                              child: Text(am,
+                                  style: const TextStyle(
+                                      fontSize: 12,
+                                      color: AppColors.emerald700,
+                                      fontWeight: FontWeight.w500)),
                             ))
                         .toList(),
                   ),
                 ],
 
+                // Reglas
                 const SizedBox(height: 24),
                 const _SectionTitle('Reglas del lugar'),
                 const SizedBox(height: 8),
@@ -267,26 +246,64 @@ class AccommodationDetailsPage extends StatelessWidget {
                             size: 18, color: AppColors.emerald600),
                         const SizedBox(width: 10),
                         Expanded(
-                          child: Text(regla,
-                              style: const TextStyle(
-                                  fontSize: 14, height: 1.4)),
-                        ),
+                            child: Text(regla,
+                                style: const TextStyle(
+                                    fontSize: 14, height: 1.4))),
                       ],
                     ),
                   ),
                 ),
-                const SizedBox(height: 28),
 
+                const SizedBox(height: 28),
+                // Botón Reservar
                 SizedBox(
                   height: 52,
+                  width: double.infinity,
                   child: ElevatedButton.icon(
                     onPressed: () => _reservar(context),
                     icon: const Icon(Icons.event_available, size: 20),
                     label: const Text('Reservar ahora'),
                   ),
                 ),
+                const SizedBox(height: 32),
+
+                // Sección de reseñas del alojamiento
+                const _SectionTitle('Reseñas de este lugar'),
+                const SizedBox(height: 12),
               ],
             ),
+          ),
+
+          // Reseñas cargadas en tiempo real filtradas por nombre del alojamiento
+          StreamBuilder<List<Review>>(
+            stream: ReviewService().watchAll(),
+            builder: (context, snap) {
+              if (snap.connectionState == ConnectionState.waiting) {
+                return const Padding(
+                  padding: EdgeInsets.all(24),
+                  child: Center(child: CircularProgressIndicator()),
+                );
+              }
+              final todas = snap.data ?? [];
+              final propias = todas
+                  .where((r) => r.accommodationName == a.name)
+                  .toList();
+              if (propias.isEmpty) {
+                return const Padding(
+                  padding: EdgeInsets.fromLTRB(20, 0, 20, 32),
+                  child: Text('Aún no hay reseñas para este lugar.',
+                      style: TextStyle(color: AppColors.mutedForeground)),
+                );
+              }
+              return Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+                child: Column(
+                  children: propias
+                      .map((r) => _ReviewCard(review: r))
+                      .toList(),
+                ),
+              );
+            },
           ),
         ],
       ),
@@ -294,14 +311,14 @@ class AccommodationDetailsPage extends StatelessWidget {
   }
 }
 
+import 'data/mock_data.dart' show Review;
+
 class _SectionTitle extends StatelessWidget {
   final String text;
   const _SectionTitle(this.text);
   @override
-  Widget build(BuildContext context) {
-    return Text(text,
-        style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700));
-  }
+  Widget build(BuildContext context) =>
+      Text(text, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700));
 }
 
 class _InfoChip extends StatelessWidget {
@@ -360,24 +377,21 @@ class _GaleriaState extends State<_Galeria> {
     if (widget.fotos.length <= 1) {
       return EcoImage(
         url: widget.fotos.isEmpty ? null : widget.fotos.first,
-        height: 230,
+        height: double.infinity,
         fallbackIcon: widget.fallbackIcon,
       );
     }
     return Stack(
       alignment: Alignment.bottomCenter,
       children: [
-        SizedBox(
-          height: 230,
-          child: PageView.builder(
-            controller: _controller,
-            itemCount: widget.fotos.length,
-            onPageChanged: (i) => setState(() => _pagina = i),
-            itemBuilder: (context, i) => EcoImage(
-              url: widget.fotos[i],
-              height: 230,
-              fallbackIcon: widget.fallbackIcon,
-            ),
+        PageView.builder(
+          controller: _controller,
+          itemCount: widget.fotos.length,
+          onPageChanged: (i) => setState(() => _pagina = i),
+          itemBuilder: (context, i) => EcoImage(
+            url: widget.fotos[i],
+            height: double.infinity,
+            fallbackIcon: widget.fallbackIcon,
           ),
         ),
         Padding(
@@ -401,6 +415,85 @@ class _GaleriaState extends State<_Galeria> {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Tarjeta de una reseña individual, reutilizada en la sección de comentarios
+/// del detalle del alojamiento.
+class _ReviewCard extends StatelessWidget {
+  final Review review;
+  const _ReviewCard({required this.review});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 18,
+                backgroundColor: AppColors.emerald100,
+                child: Text(review.avatar,
+                    style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.emerald700)),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(review.userName,
+                        style: const TextStyle(fontWeight: FontWeight.w600)),
+                    Text(review.date,
+                        style: const TextStyle(
+                            fontSize: 12, color: AppColors.mutedForeground)),
+                  ],
+                ),
+              ),
+              Row(
+                children: List.generate(
+                  5,
+                  (i) => Icon(
+                    i < review.rating ? Icons.star : Icons.star_border,
+                    size: 14,
+                    color: AppColors.amber600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(review.comment,
+              style: const TextStyle(fontSize: 14, height: 1.5)),
+          if (review.priceAccuracy) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: AppColors.emerald50,
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: const Text('✓ Precio verificado',
+                  style: TextStyle(
+                      fontSize: 11,
+                      color: AppColors.emerald700,
+                      fontWeight: FontWeight.w500)),
+            ),
+          ],
+        ],
+      ),
     );
   }
 }
