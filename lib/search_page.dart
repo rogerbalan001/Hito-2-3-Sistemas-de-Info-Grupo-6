@@ -4,10 +4,11 @@ import 'services/accommodation_repository.dart';
 import 'services/reservation_service.dart';
 import 'utils/auth_guard.dart';
 import 'widgets/reservation_extras_sheet.dart';
+import 'widgets/shimmer.dart';
+import 'widgets/eco_card.dart';
 import 'accommodation_details_page.dart';
 import 'main_shell.dart';
 import 'theme/app_theme.dart';
-
 /// Pantalla de Búsqueda (contenido plano; la barra superior la pone el shell).
 class SearchPage extends StatefulWidget {
   const SearchPage({Key? key}) : super(key: key);
@@ -21,6 +22,7 @@ class _SearchPageState extends State<SearchPage> {
   double _maxBudget = 200.0;
   String _query = '';
   bool _showFilters = false;
+  bool _isGrid = false; // Mejora 6 — toggle grid/lista
 
   @override
   void dispose() {
@@ -194,19 +196,39 @@ class _SearchPageState extends State<SearchPage> {
         ],
 
         const SizedBox(height: 16),
-        Text(
-            cargando
-                ? 'Cargando alojamientos...'
-                : '${results.length} resultado(s) encontrado(s)',
-            style: const TextStyle(
-                fontSize: 14, color: AppColors.mutedForeground)),
+        // Contador + toggle grid/lista
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                  cargando
+                      ? 'Cargando alojamientos...'
+                      : '${results.length} resultado(s) encontrado(s)',
+                  style: const TextStyle(
+                      fontSize: 14, color: AppColors.mutedForeground)),
+            ),
+            // Mejora 6 — Toggle vista grid / lista
+            if (!cargando && results.isNotEmpty)
+              Row(children: [
+                _ViewToggle(
+                  icon: Icons.grid_view_rounded,
+                  active: _isGrid,
+                  onTap: () => setState(() => _isGrid = true),
+                ),
+                const SizedBox(width: 4),
+                _ViewToggle(
+                  icon: Icons.view_list_rounded,
+                  active: !_isGrid,
+                  onTap: () => setState(() => _isGrid = false),
+                ),
+              ]),
+          ],
+        ),
         const SizedBox(height: 12),
 
+        // Mejora 4 — Shimmer en lugar del spinner
         if (cargando)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 48),
-            child: Center(child: CircularProgressIndicator()),
-          )
+          ShimmerList(count: 4, grid: false)
         else if (errorMessage != null)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 48),
@@ -235,28 +257,38 @@ class _SearchPageState extends State<SearchPage> {
               ],
             ),
           )
+        // Mejora 6 — Diseño responsivo: grid en pantallas anchas o modo grid
+        else if (_isGrid)
+          LayoutBuilder(builder: (context, c) {
+            final cols = c.maxWidth >= 600 ? 3 : 2;
+            return GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: cols,
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+                childAspectRatio: 0.72,
+              ),
+              itemCount: results.length,
+              itemBuilder: (_, i) => EcoAccommodationCard(
+                accommodation: results[i],
+                onTap: () => _abrirDetalle(results[i]),
+                onReserve: () => _reservar(results[i]),
+                style: EcoCardStyle.grid,
+              ),
+            );
+          })
         else
-          LayoutBuilder(
-            builder: (context, c) {
-              final cols = c.maxWidth >= 720 ? 2 : 1;
-              final cardW = cols == 1
-                  ? c.maxWidth
-                  : (c.maxWidth - 16) / 2;
-              return Wrap(
-                spacing: 16,
-                runSpacing: 16,
-                children: results
-                    .map((a) => SizedBox(
-                          width: cardW,
-                          child: _AccommodationCard(
-                            accommodation: a,
-                            onOpen: () => _abrirDetalle(a),
-                            onReserve: () => _reservar(a),
-                          ),
-                        ))
-                    .toList(),
-              );
-            },
+          Column(
+            children: results
+                .map((a) => EcoAccommodationCard(
+                      accommodation: a,
+                      onTap: () => _abrirDetalle(a),
+                      onReserve: () => _reservar(a),
+                      style: EcoCardStyle.list,
+                    ))
+                .toList(),
           ),
       ],
     );
@@ -276,224 +308,30 @@ IconData _transportIcon(String t) {
   }
 }
 
-/// Tarjeta horizontal de alojamiento (foto izquierda + datos), estilo Figma.
-class _AccommodationCard extends StatelessWidget {
-  final Accommodation accommodation;
-  final VoidCallback onOpen;
-  final VoidCallback onReserve;
-  const _AccommodationCard({
-    required this.accommodation,
-    required this.onOpen,
-    required this.onReserve,
-  });
+/// Botón de toggle para cambiar entre vista lista y grid.
+class _ViewToggle extends StatelessWidget {
+  final IconData icon;
+  final bool active;
+  final VoidCallback onTap;
+  const _ViewToggle(
+      {required this.icon, required this.active, required this.onTap});
 
   @override
-  Widget build(BuildContext context) {
-    final a = accommodation;
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+  Widget build(BuildContext context) => InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: active ? AppColors.emerald100 : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
           ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onOpen,
-          borderRadius: BorderRadius.circular(12),
-          child: IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                ClipRRect(
-                  borderRadius: const BorderRadius.horizontal(
-                      left: Radius.circular(12)),
-                  child: SizedBox(
-                    width: 130,
-                    // La imagen va dentro de un Stack con Positioned.fill para
-                    // que NO aporte altura intrínseca: así IntrinsicHeight mide
-                    // solo la columna de texto y la imagen rellena esa altura.
-                    // (Pasar height: double.infinity directo al Image rompía la
-                    // medición y las tarjetas colapsaban a altura cero.)
-                    child: Stack(
-                      children: [
-                        Positioned.fill(
-                          child: EcoImage(url: a.imageUrl, height: 160),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.all(14),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              child: Text(a.name,
-                                  style: const TextStyle(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w700)),
-                            ),
-                            const SizedBox(width: 6),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: AppColors.emerald100,
-                                borderRadius: BorderRadius.circular(999),
-                              ),
-                              child: Text(a.type.toLowerCase(),
-                                  style: const TextStyle(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w600,
-                                      color: AppColors.emerald700)),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 2),
-                        Row(
-                          children: [
-                            const Icon(Icons.place_outlined,
-                                size: 13, color: AppColors.mutedForeground),
-                            const SizedBox(width: 3),
-                            Expanded(
-                              child: Text('${a.location}, ${a.region}',
-                                  style: const TextStyle(
-                                      fontSize: 12,
-                                      color: AppColors.mutedForeground)),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          a.description ?? '',
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                              fontSize: 12,
-                              height: 1.35,
-                              color: AppColors.mutedForeground),
-                        ),
-                        const SizedBox(height: 8),
-                        Wrap(
-                          spacing: 6,
-                          runSpacing: 6,
-                          children: a.transport
-                              .map((t) => Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 8, vertical: 3),
-                                    decoration: BoxDecoration(
-                                      color: AppColors.blue50,
-                                      borderRadius:
-                                          BorderRadius.circular(999),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(_transportIcon(t),
-                                            size: 12,
-                                            color: AppColors.blue600),
-                                        const SizedBox(width: 4),
-                                        Text(t,
-                                            style: const TextStyle(
-                                                fontSize: 10,
-                                                color: AppColors.blue600,
-                                                fontWeight:
-                                                    FontWeight.w500)),
-                                      ],
-                                    ),
-                                  ))
-                              .toList(),
-                        ),
-                        const SizedBox(height: 10),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Expanded(
-                              child: Wrap(
-                                crossAxisAlignment: WrapCrossAlignment.center,
-                                spacing: 10,
-                                runSpacing: 4,
-                                children: [
-                                  RichText(
-                                    text: TextSpan(children: [
-                                      TextSpan(
-                                        text: '\$${a.pricePerNight.round()}',
-                                        style: const TextStyle(
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.w700,
-                                          color: AppColors.emerald700,
-                                        ),
-                                      ),
-                                      const TextSpan(
-                                        text: '/noche',
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          color: AppColors.mutedForeground,
-                                        ),
-                                      ),
-                                    ]),
-                                  ),
-                                  if (a.capacity != null)
-                                    Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        const Icon(Icons.group_outlined,
-                                            size: 13,
-                                            color: AppColors.mutedForeground),
-                                        const SizedBox(width: 2),
-                                        Text('${a.capacity}',
-                                            style: const TextStyle(
-                                                fontSize: 12,
-                                                color: AppColors
-                                                    .mutedForeground)),
-                                      ],
-                                    ),
-                                  StarRating(rating: a.rating, fontSize: 12),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            ElevatedButton(
-                              onPressed: onReserve,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppColors.emerald600,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 14, vertical: 8),
-                                minimumSize: const Size(0, 34),
-                                textStyle: const TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600),
-                                shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8)),
-                              ),
-                              child: const Text('Reservar'),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
+          child: Icon(icon,
+              size: 20,
+              color: active
+                  ? AppColors.emerald700
+                  : AppColors.mutedForeground),
         ),
-      ),
-    );
-  }
+      );
 }
+

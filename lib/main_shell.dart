@@ -139,7 +139,16 @@ class _MainShellState extends State<MainShell> {
             ),
           ),
           drawer: wide ? null : _buildDrawer(context, visible),
-          body: IndexedStack(index: _index, children: _pages),
+          // Mejora 3 — Animación de cambio de pestaña con fade suave.
+          body: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 220),
+            switchInCurve: Curves.easeOut,
+            switchOutCurve: Curves.easeIn,
+            child: KeyedSubtree(
+              key: ValueKey<int>(_index),
+              child: _pages[_index],
+            ),
+          ),
         );
       },
     );
