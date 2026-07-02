@@ -138,15 +138,23 @@ class _AccommodationDetailsPageState extends State<AccommodationDetailsPage> {
       ),
       body: CustomScrollView(
         slivers: [
-          // AppBar con imagen de fondo que se colapsa al hacer scroll.
+          // AppBar simple (sin imagen de fondo).
           SliverAppBar(
-            expandedHeight: 260,
             pinned: true,
             backgroundColor: Colors.white,
             foregroundColor: AppColors.emerald800,
             iconTheme: const IconThemeData(color: AppColors.emerald700),
-            flexibleSpace: FlexibleSpaceBar(
-              background: _Galeria(
+            title: Text(a.name,
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis),
+          ),
+
+          // Galería estilo Airbnb (foto grande + cuadrícula 2×2).
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+              child: _GaleriaGrid(
                 fotos: a.allImages,
                 fallbackIcon: _iconFor(a.type),
               ),
@@ -724,94 +732,254 @@ class _BarraReserva extends StatelessWidget {
   }
 }
 
-/// Galería de fotos deslizable.
-class _Galeria extends StatefulWidget {
+/// Galería estilo Airbnb: foto principal grande a la izquierda (o full-width
+/// si es la única), y cuadrícula 2×2 a la derecha con el resto de fotos.
+/// El botón "Ver todas" abre un modal deslizable con todas las fotos.
+class _GaleriaGrid extends StatelessWidget {
   final List<String> fotos;
   final IconData fallbackIcon;
-  const _Galeria({required this.fotos, required this.fallbackIcon});
+  const _GaleriaGrid({required this.fotos, required this.fallbackIcon});
+
+  void _abrirTodasLasFotos(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.black,
+      builder: (_) => _GaleriaFullscreen(fotos: fotos, fallbackIcon: fallbackIcon),
+    );
+  }
 
   @override
-  State<_Galeria> createState() => _GaleriaState();
+  Widget build(BuildContext context) {
+    final total = fotos.length;
+
+    if (total == 0) {
+      // Sin fotos: degradado de respaldo cuadrado.
+      return AspectRatio(
+        aspectRatio: 16 / 9,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(14),
+          child: EcoImage(url: null, height: double.infinity, fallbackIcon: fallbackIcon),
+        ),
+      );
+    }
+
+    if (total == 1) {
+      // Una sola foto: ancho completo, proporción 4:3.
+      return AspectRatio(
+        aspectRatio: 4 / 3,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(14),
+          child: EcoImage(
+              url: fotos.first, height: double.infinity, fallbackIcon: fallbackIcon),
+        ),
+      );
+    }
+
+    // 2+ fotos: layout tipo Airbnb.
+    final minisFotos = fotos.skip(1).take(4).toList();
+    final mostrarBoton = total > 5;
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(14),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final totalH = constraints.maxWidth * 0.6; // altura total de la galería
+          final miniH = totalH / 2 - 2;             // altura de cada mini
+
+          return SizedBox(
+            height: totalH,
+            child: Row(
+              children: [
+                // Foto principal grande (izquierda, 60% del ancho).
+                Expanded(
+                  flex: 6,
+                  child: GestureDetector(
+                    onTap: () => _abrirTodasLasFotos(context),
+                    child: EcoImage(
+                      url: fotos.first,
+                      height: double.infinity,
+                      fallbackIcon: fallbackIcon,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 3),
+                // Cuadrícula 2×2 derecha (40% del ancho).
+                Expanded(
+                  flex: 4,
+                  child: Column(
+                    children: [
+                      for (var i = 0; i < minisFotos.length; i++) ...[
+                        if (i > 0) const SizedBox(height: 3),
+                        Expanded(
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              GestureDetector(
+                                onTap: () => _abrirTodasLasFotos(context),
+                                child: EcoImage(
+                                  url: minisFotos[i],
+                                  height: miniH,
+                                  fallbackIcon: fallbackIcon,
+                                ),
+                              ),
+                              // Botón "Ver todas" encima de la última miniatura.
+                              if (i == minisFotos.length - 1 && (total > 5 || total > minisFotos.length + 1))
+                                Positioned(
+                                  bottom: 10,
+                                  right: 10,
+                                  child: GestureDetector(
+                                    onTap: () => _abrirTodasLasFotos(context),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 10, vertical: 6),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius: BorderRadius.circular(8),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.black.withOpacity(0.2),
+                                            blurRadius: 6,
+                                          ),
+                                        ],
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const Icon(Icons.grid_view_rounded,
+                                              size: 14, color: Colors.black87),
+                                          const SizedBox(width: 5),
+                                          Text(
+                                            'Ver $total fotos',
+                                            style: const TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w700,
+                                              color: Colors.black87,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
 }
 
-class _GaleriaState extends State<_Galeria> {
-  final _controller = PageController();
+/// Modal de pantalla completa para ver todas las fotos deslizando.
+class _GaleriaFullscreen extends StatefulWidget {
+  final List<String> fotos;
+  final IconData fallbackIcon;
+  const _GaleriaFullscreen(
+      {required this.fotos, required this.fallbackIcon});
+
+  @override
+  State<_GaleriaFullscreen> createState() => _GaleriaFullscreenState();
+}
+
+class _GaleriaFullscreenState extends State<_GaleriaFullscreen> {
+  final _ctrl = PageController();
   int _pagina = 0;
 
   @override
   void dispose() {
-    _controller.dispose();
+    _ctrl.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    if (widget.fotos.length <= 1) {
-      return EcoImage(
-        url: widget.fotos.isEmpty ? null : widget.fotos.first,
-        height: 260,
-        fallbackIcon: widget.fallbackIcon,
-      );
-    }
-    return Stack(
-      alignment: Alignment.bottomCenter,
-      children: [
-        SizedBox(
-          height: 260,
-          child: PageView.builder(
-            controller: _controller,
-            itemCount: widget.fotos.length,
-            onPageChanged: (i) => setState(() => _pagina = i),
-            itemBuilder: (_, i) => EcoImage(
-              url: widget.fotos[i],
-              height: 260,
-              fallbackIcon: widget.fallbackIcon,
-            ),
+    return SizedBox(
+      height: MediaQuery.of(context).size.height * 0.88,
+      child: Column(
+        children: [
+          // Barra superior del modal.
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            child: Row(children: [
+              GestureDetector(
+                onTap: () => Navigator.pop(context),
+                child: const Icon(Icons.close, color: Colors.white),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                '${_pagina + 1} / ${widget.fotos.length}',
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600),
+              ),
+            ]),
           ),
-        ),
-        Padding(
-          padding: const EdgeInsets.only(bottom: 12),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              for (var i = 0; i < widget.fotos.length; i++)
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  margin: const EdgeInsets.symmetric(horizontal: 3),
-                  width: i == _pagina ? 20 : 6,
-                  height: 6,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(3),
-                    color: i == _pagina
-                        ? Colors.white
-                        : Colors.white.withOpacity(0.5),
+          // Galería deslizable.
+          Expanded(
+            child: PageView.builder(
+              controller: _ctrl,
+              itemCount: widget.fotos.length,
+              onPageChanged: (i) => setState(() => _pagina = i),
+              itemBuilder: (_, i) => InteractiveViewer(
+                child: Center(
+                  child: EcoImage(
+                    url: widget.fotos[i],
+                    height: double.infinity,
+                    fallbackIcon: widget.fallbackIcon,
                   ),
                 ),
-            ],
-          ),
-        ),
-        // Contador de fotos arriba a la derecha.
-        Positioned(
-          top: 12,
-          right: 12,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: Colors.black54,
-              borderRadius: BorderRadius.circular(999),
-            ),
-            child: Text(
-              '${_pagina + 1}/${widget.fotos.length}',
-              style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600),
+              ),
             ),
           ),
-        ),
-      ],
+          // Puntos indicadores.
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                for (var i = 0; i < widget.fotos.length; i++)
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    margin: const EdgeInsets.symmetric(horizontal: 3),
+                    width: i == _pagina ? 20 : 6,
+                    height: 6,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(3),
+                      color: i == _pagina
+                          ? Colors.white
+                          : Colors.white.withOpacity(0.4),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
+}
+
+// La clase _Galeria anterior se mantiene para compatibilidad con otros lugares
+// que aún pudieran usarla, pero la pantalla de detalle ya usa _GaleriaGrid.
+class _Galeria extends StatelessWidget {
+  final List<String> fotos;
+  final IconData fallbackIcon;
+  const _Galeria({required this.fotos, required this.fallbackIcon});
+
+  @override
+  Widget build(BuildContext context) => _GaleriaGrid(
+        fotos: fotos,
+        fallbackIcon: fallbackIcon,
+      );
 }
 
 /// Tarjeta de reseña.
